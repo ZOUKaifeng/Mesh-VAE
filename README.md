@@ -31,5 +31,5 @@ You can download it from [**google drive**](https://drive.google.com/file/d/10lV
 
 ### 3. Training
 ```bash
-python main_CHUSE.py
+python main_CHUSE.py -- train True
 ```
