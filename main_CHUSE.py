@@ -312,50 +312,52 @@ def main(args):
 
     for train_index, test_index in skf.split(dataset_index, y):
         train_, valid_ = train_test_split(np.array(dataset_index)[train_index], test_size=test_size, random_state = random_seeds)
+        if args.train:
+            optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
+            n+=1
+            net.load_state_dict(torch.load(os.path.join(checkpoint_dir, 'initial_weight.pt')))
+            if checkpoint_file:
+                print("loading weight from ", checkpoint_file[n-1])
+                checkpoint = torch.load(checkpoint_file[n-1])
 
-        optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
-        n+=1
-        net.load_state_dict(torch.load(os.path.join(checkpoint_dir, 'initial_weight.pt')))
-        if checkpoint_file:
-            print("loading weight from ", checkpoint_file[n-1])
-            checkpoint = torch.load(checkpoint_file[n-1])
-
-            print('start_epoch', start_epoch)
-            net.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            for state in optimizer.state.values():
-                for k, v in state.items():
-                    if isinstance(v, torch.Tensor):
-                        state[k] = v.to(device)
-        
-
-        train_dataset = CTimageData(train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-    
-        valid_dataset = CTimageData( valid_, config, labels,  dtype = 'test', template = template, pre_transform = Normalize())
-        valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-
-
-        label_mask = {}
-        for epoch in range(start_epoch, total_epochs+1):
-
-            if epoch > 300:
-                for p in optimizer.param_groups:
-                    p['lr'] = 0.0003
-            elif epoch > 600:
-                for p in optimizer.param_groups:
-                    p['lr'] = 0.0001
-          
-            train_loss, train_error, train_acc = train(net, train_loader, len(train_loader), optimizer,label_mask, device, num_points, config = config,checkpoint_dir = checkpoint_dir)
-            valid_loss, valid_error, valid_acc = evaluate(net, valid_loader, len(valid_loader),device,faces = faces, config = config, checkpoint_dir = checkpoint_dir)
-
-            if valid_loss < best_loss[n-1]:
-                best_loss[n-1] = valid_loss
-                best_error[n-1] = valid_error
-                best_acc[n-1] = valid_acc
-
-                save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir, epoch)
+                print('start_epoch', start_epoch)
+                net.load_state_dict(checkpoint['state_dict'])
+                optimizer.load_state_dict(checkpoint['optimizer'])
+                for state in optimizer.state.values():
+                    for k, v in state.items():
+                        if isinstance(v, torch.Tensor):
+                            state[k] = v.to(device)
             
+
+            train_dataset = CTimageData(train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+        
+            valid_dataset = CTimageData( valid_, config, labels,  dtype = 'test', template = template, pre_transform = Normalize())
+            valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+
+
+            label_mask = {}
+
+            
+            for epoch in range(start_epoch, total_epochs+1):
+
+                if epoch > 300:
+                    for p in optimizer.param_groups:
+                        p['lr'] = 0.0003
+                elif epoch > 600:
+                    for p in optimizer.param_groups:
+                        p['lr'] = 0.0001
+              
+                train_loss, train_error, train_acc = train(net, train_loader, len(train_loader), optimizer,label_mask, device, num_points, config = config,checkpoint_dir = checkpoint_dir)
+                valid_loss, valid_error, valid_acc = evaluate(net, valid_loader, len(valid_loader),device,faces = faces, config = config, checkpoint_dir = checkpoint_dir)
+
+                if valid_loss < best_loss[n-1]:
+                    best_loss[n-1] = valid_loss
+                    best_error[n-1] = valid_error
+                    best_acc[n-1] = valid_acc
+
+                    save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir, epoch)
+                
             print('Epoch {}, train loss {} train_error {}, train_acc {},  valid loss {} valid_error {}, valid_acc {}'.format(epoch, train_loss,train_error, train_acc, valid_loss, valid_error, valid_acc))
             print('Epoch {}, train loss {} train_error {}, train_acc {},  valid loss {} valid_error {}, valid_acc {}'.format(epoch, train_loss,train_error, train_acc, valid_loss, valid_error, valid_acc), file = my_log)
 
@@ -388,9 +390,6 @@ if __name__ == '__main__':
               'it from current directory', args.conf)
     acc = 0
 
-    if args.train:
 
-        main(args)
-    else:
-        test_all_data(args)
+    main(args)
 
