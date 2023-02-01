@@ -6,12 +6,15 @@ Official Pytorch implementation of the paper [**"Disentangled representations: t
 If you find this code useful in your research, please cite:
 
 ```
-@INPROCEEDINGS{petrovich21actor,
-  title     = {Action-Conditioned 3{D} Human Motion Synthesis with Transformer {VAE}},
-  author    = {Petrovich, Mathis and Black, Michael J. and Varol, G{\"u}l},
-  booktitle = {International Conference on Computer Vision (ICCV)},
-  year      = {2021}
+@article{zou2023disentangled,
+  title={Disentangled representations: towards interpretation of sex determination from hip bone},
+  author={Zou, Kaifeng and Faisan, Sylvain and Heitz, Fabrice and Epain, Marie and Croisille, Pierre and Fanton, Laurent and Valette, S{\'e}bastien},
+  journal={The Visual Computer},
+  pages={1--15},
+  year={2023},
+  publisher={Springer}
 }
+
 ```
 
 ### 1. Requirements
