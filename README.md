@@ -1,4 +1,4 @@
-# Disentangled mesh Variational autoencoder
+# Disentangled Mesh Variational Autoencoder
 
 Official Pytorch implementation of the paper [**"Disentangled representations: towards interpretation of sex determination from hip bone"**](https://arxiv.org/pdf/2112.09414.pdf)
 
