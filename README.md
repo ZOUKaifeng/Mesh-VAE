@@ -13,3 +13,10 @@ If you find this code useful in your research, please cite:
   year      = {2021}
 }
 ```
+## Requirements
+
+This code is tested on Python3.8, Pytorch versoin 1.11.0+cu113, torch-geometric version 2.0.4 . Requirments can be install by running
+
+      pip install -r requirements.txt
+    
+Install mesh processing libraries from [MPI-IS/mesh](https://github.com/MPI-IS/mesh). Note that the python3 version of mesh package library is needed for this.
