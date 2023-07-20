@@ -169,7 +169,13 @@ class cheb_VAE(torch.nn.Module):
 
         self.reset_parameters()
         self.type = model
-        self.log_sigma  = torch.tensor([0.0]).cuda()
+        
+
+        # print(self.filters)
+        
+        # self.AdaIN = [AdaptiveInstanceNorm(self.filters[-i-1], self.num_class) for i in range(len(self.filters)-1)]
+
+       # self.log_sigma  = torch.tensor([0.0]).cuda()
         # if self.type == 'sigma_VAE':
         # ## Sigma VAE
         #     self.log_sigma = torch.nn.Parameter(torch.full((1,), 0)[0], requires_grad= True)
@@ -181,18 +187,17 @@ class cheb_VAE(torch.nn.Module):
         self.alpha = alpha
         self.beta = beta
   
-    def forward(self, data, y, supervise = True, m_type = "test"):
+    def forward(self, data, x_gt, y, supervise = True, m_type = "test"):
         self.supervise = supervise
         #x = data
 
-        
+
         x, edge_index = data.x, data.edge_index
 
        # print(x.shape)
         batch_size = data.num_graphs
        # batch_size = x.shape[0]
         x = x.reshape(batch_size, -1, self.filters[0])
-        x_gt = x
       #  print(x.shape)
         x = self.encoder(x)
         y_hat = self.classifier(x)  
@@ -209,33 +214,41 @@ class cheb_VAE(torch.nn.Module):
 
         if m_type == "train":
 
-            z_ = self.reparameterize(x_mean, x_var)    
+            z_ = self.reparameterize(x_mean, x_var)
+            
 
         else:
             z_ = x_mean
+        #    z = torch.cat([y_hat, z_], -1)
+
+        # if self.supervise:
 
         z = torch.cat([y, z_], -1)
 
-        oppo_y = torch.abs(1-y).float()
-        oppo_z = torch.cat([oppo_y, z_], -1)
-        # # z = y
-        # else:
+        # oppo_y = torch.abs(1-y).float()
+        # oppo_z = torch.cat([oppo_y, z_], -1)
+        # # # z = y
+        # # else:
 
-        #     z = torch.cat([labels_onehot, z_], -1)
+        # #     z = torch.cat([labels_onehot, z_], -1)
         x = self.decoder(z)
-        oppo_x = self.decoder(oppo_z)
-        if self.type == 'non_shared_sigma_VAE':
-            self.log_sigma = self.dec_sigma(x.view(batch_size, -1)).reshape(batch_size, -1, self.filters[0])
-      
+        # oppo_x = self.decoder(oppo_z)
+        # if self.type == 'non_shared_sigma_VAE':
+        #     self.log_sigma = self.dec_sigma(x.view(batch_size, -1)).reshape(batch_size, -1, self.filters[0])
+        
+
+
+     #   x = x.reshape(batch_size, -1)
+      #  x_gt = data.x.reshape(batch_size, -1, self.filters[0])
         x = x.reshape(batch_size, -1, self.filters[0])
 
-        loss, correct = self.loss_function(x_gt, x, z, x_mean, x_var, y, y_hat)
+        loss, correct, kld, rec_loss = self.loss_function(x_gt, x, z, x_mean, x_var, y, y_hat)
 
         # index_pred = torch.argmax(y_hat)
 
         
        
-        return loss, correct, x, z_, y_hat
+        return loss, correct, x, [kld, rec_loss, z_], y_hat
 
     def classifier(self, x):
     #    print(self.classifier_layer(x).shape)
@@ -308,7 +321,7 @@ class cheb_VAE(torch.nn.Module):
     def loss_function(self, x, recon_x, z, mu_z, logvar_z, y, y_hat):
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
         # https://arxiv.org/abs/1312.6114
-
+        # -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
         batch_size = x.shape[0]
         kld = logpdf.KLD(mu_z, logvar_z)
      
@@ -322,20 +335,15 @@ class cheb_VAE(torch.nn.Module):
         index_pred = torch.argmax(y_hat,  dim = 1)
         index = torch.argmax(y,  dim = 1)
 
-        #print(index.shape)
         correct = torch.sum(index_pred == index)
 
-        
 
+        logqy = (y_hat*y).sum(-1).log()
+        loss = (kld + rec_loss - 2*logqy).mean()
 
-        if self.supervise:
-            logqy = (y_hat*y).sum(-1).log()
-            loss = (kld + rec_loss - 2*logqy).mean()
-        else:
-            loss = (kld + rec_loss).mean()
        # loss =  - logqy.mean()
               # loss = -(-kld  + p(x|z)) = kld + rec_loss
-        return loss, correct
+        return loss, correct, kld, rec_loss
 
 
     def reset_parameters(self):
