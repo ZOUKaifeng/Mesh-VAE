@@ -19,7 +19,7 @@ import numpy as np
 # from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from transform import Normalize
-from torch_geometric.data import Data, Dataset
+from torch.data import Data, Dataset
 import mesh_operations
 from psbody.mesh import Mesh
 
@@ -46,13 +46,11 @@ class CTimageData(Dataset):
     label_file: 
     template: average point cloud
     '''
-    def __init__(self, dataset_index , config, label, template, dtype = 'train',  transform=None, pre_transform = None):
+    def __init__(self, root_dir, dataset_index , config, label,  template, dtype = 'train',   pre_transform = None):
         self.checkpoint_dir = config['checkpoint_dir']
-
-        self.transform = transform  
+        self.root_dir = root_dir   
         self.error_file = config['error_file']
         self.label = label
-
         self.template = template  
         self.dataset_index = dataset_index
         self.pre_transform = pre_transform
@@ -77,14 +75,22 @@ class CTimageData(Dataset):
         mesh_verts = copy.copy(ori_data).float()
        # mesh_verts[index] = 0
         data_ = Data(x=mesh_verts, y=mesh_verts, edge_index=self.edge_index)
-        return data_ , self.data_label[idx],self.ori_mesh[idx], self.R[idx], self.m[idx], self.s[idx]
+        return data_, ori_data , self.data_label[idx], self.filename[idx],self.ori_mesh[idx], self.R[idx], self.m[idx], self.s[idx]
 
 
     def preprocess(self):
+        error = []
+        if self.error_file is not None:
+            with open(self.error_file, "r") as file :
+                for ind in file:
+                    if ind != '\n':
+                        error.append(int(ind))
+
+        print("number of error file", len(error))
 
         filename = []
 
-        data = []  
+        data = []  #Create an empty list
         data_label = []
         train_vertices = []
 
@@ -97,36 +103,47 @@ class CTimageData(Dataset):
         self.data = []
         self.ori_data = []
         self.edge_index = None
-        self.age_label = []
+  
+       # train_set, test_set =  train_test_split(self.dataset_index, test_size=self.test_size, random_state=self.random_state)
+      #  template = OnUnitCube(self.template)
 
+        #self.template, _, _ = OnUnitCube(self.template)
+        # if not os.path.exists('./new_dataset/'):
+        #     os.makedirs('./new_dataset/')
 
-        for i, file in enumerate(self.dataset_index):
+        for i in self.dataset_index:
+            file = os.path.join(self.root_dir, "mesh"+str(i)+".obj")
+            if i not in error and os.path.exists(file):   #i not in error and 
+               # print(file)
+                
+                filename.append(file)
+               # print(file)
+               # points = pd.read_csv(file, header=None).values  # Load the points of the patient i
+                # mesh = o3d.io.read_triangle_mesh(file)
 
-            
-            filename.append(file)
+                mesh = Mesh(filename=file)
+                # points, s, mean_points = OnUnitCube(np.array(mesh.v))
+                points = np.array(mesh.v) 
+                self.ori_mesh.append(torch.Tensor(points))
+                mtx1, mtx2, disparity, res= procrustes(self.template,points)
+                ori_mtx = copy.copy(mtx2)
+                train_vertices.append(ori_mtx)
+                if self.edge_index is None:
 
+                    adjacency = mesh_operations.get_vert_connectivity(mesh.v, mesh.f).tocoo()
+                    self.edge_index = torch.Tensor(np.vstack((adjacency.row, adjacency.col))).long()
+               # data_ = Data(x=mesh_verts, y=mesh_verts, edge_index=self.edge_index)
 
-            mesh = Mesh(filename=file)
+                
 
-            points = np.array(mesh.v) 
-            self.ori_mesh.append(torch.Tensor(points))
-            mtx1, mtx2, disparity, res= procrustes(self.template,points)
-            ori_mtx = copy.copy(mtx2)
-            train_vertices.append(ori_mtx)
-            if self.edge_index is None:
-
-                adjacency = mesh_operations.get_vert_connectivity(mesh.v, mesh.f).tocoo()
-                self.edge_index = torch.Tensor(np.vstack((adjacency.row, adjacency.col))).long()
-           # data_ = Data(x=mesh_verts, y=mesh_verts, edge_index=self.edge_index)
-
-            
-
-               # Procrustes surimposition of the patients points over the average points (and normalization)
-            #data.append(data_)        # Add the registered points to the tensor vertices
-            data_label.append(self.label[i])  # Add label i to label
-            self.R.append(torch.FloatTensor(res[0]))
-            self.s.append(torch.FloatTensor([res[1]]))
-            self.m.append(torch.FloatTensor([res[2]]))
+                   # Procrustes surimposition of the patients points over the average points (and normalization)
+                #data.append(data_)        # Add the registered points to the tensor vertices
+                data_label.append(self.label[i])  # Add label i to label
+               
+                # self.res.append([torch.Tensor(res[0]),torch.Tensor([res[1]]), torch.Tensor([res[2]])])
+                self.R.append(torch.FloatTensor(res[0]))
+                self.s.append(torch.FloatTensor([res[1]]))
+                self.m.append(torch.FloatTensor([res[2]]))
 
 
 
@@ -149,6 +166,9 @@ class CTimageData(Dataset):
                     self.pre_transform.mean = mean
                 if self.pre_transform.std is None:
                     self.pre_transform.std = std
+
+            #self.data = data
+           # for v in train_vertices:
             self.ori_data =train_vertices
 
             self.filename = filename
@@ -161,7 +181,28 @@ class CTimageData(Dataset):
 
             self.filename = filename
 
-        print(self.dtype ," dataset has been created, the number of train data:", len(self.ori_data) )
+        print(self.dtype ," dataset has been created, the number of {} data:".format(self.dtype), len(self.ori_data) )
+
+        # if self.dtype == 'test':
+        #     if self.pre_transform is not None:
+        #         self.norm_dict = np.load(os.path.join(self.checkpoint_dir, 'norm.npz'), allow_pickle = True)
+        #         mean = self.norm_dict['mean']
+        #         std = self.norm_dict['std']
+        #         if hasattr(self.pre_transform, 'mean') and hasattr(self.pre_transform, 'std'):
+        #             if self.pre_transform.mean is None:
+        #                 self.pre_transform.mean = mean
+        #             if self.pre_transform.std is None:
+        #                 self.pre_transform.std = std
+
+        #         self.test = [self.pre_transform(v) for v in data]
+        #         self.test_label = data_label
+        #         self.filename = filename
+        #     else:
+        #         self.test = data
+        #         self.test_label = data_label
+        #         self.filename = filename
+        
+            # print("Test dataset has been created, the number of test data:", len(self.test))
 
 
 if __name__ == '__main__':
