@@ -64,6 +64,9 @@ def classifier_(net, x):
  
     return  index_pred
 
+def euclidean_distances(gt, pred):
+    return np.sqrt(((gt-pred)**2).sum(-1))
+
 def train(model, train_loader, len_dataset, optimizer, device,num_points, checkpoint_dir = None):
     model.train()
     total_loss = 0
@@ -74,7 +77,7 @@ def train(model, train_loader, len_dataset, optimizer, device,num_points, checkp
     norm_dict = np.load(os.path.join(checkpoint_dir, 'norm.npz'), allow_pickle = True)
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
-    error_ = np.empty((0, num_points, 3))
+    error_ = 0
     sigma = 0
 
     
@@ -115,8 +118,8 @@ def train(model, train_loader, len_dataset, optimizer, device,num_points, checkp
         recon_mesh = recon_mesh.detach().cpu().numpy()
        
         gt_mesh = gt_mesh.detach().numpy()
-        diff = np.abs(recon_mesh - gt_mesh)
-        error_ = np.concatenate((error_, diff), axis = 0)
+        diff = euclidean_distances(recon_mesh, gt_mesh)
+        error_ += diff
 
         if np.max(diff) > max_error:
             max_error = np.max(diff)
@@ -127,7 +130,7 @@ def train(model, train_loader, len_dataset, optimizer, device,num_points, checkp
     
 
 
-    return total_loss / len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, error_, total_correct/total
+    return total_loss / len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, error_/len_dataset, total_correct/total
 
 def evaluate(model, test_loader, len_dataset, device,num_points, faces = None, checkpoint_dir = None, vis = False):
     model.eval()
@@ -141,7 +144,7 @@ def evaluate(model, test_loader, len_dataset, device,num_points, faces = None, c
     norm_dict = np.load(os.path.join(checkpoint_dir, 'norm.npz'), allow_pickle = True)
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
-    error_ = np.empty((0, num_points, 3))
+    error_ = np.empty((0, num_points))
     z_male = []
     z_female = []
     max_error = 0
@@ -202,7 +205,8 @@ def evaluate(model, test_loader, len_dataset, device,num_points, faces = None, c
             total += batch_size
             total_correct += correct.cpu().numpy()
 
-            diff = np.abs(recon_mesh - gt_mesh)
+            diff = euclidean_distances(recon_mesh, gt_mesh)
+            #print(diff.shape)
             error_ = np.concatenate((error_, diff), axis = 0)
             oppo = 1 - sex_hot
             index_gt = torch.argmax(oppo,  dim = 1)
@@ -247,7 +251,7 @@ def evaluate(model, test_loader, len_dataset, device,num_points, faces = None, c
                         oppo_path = os.path.join(failed_path, str(number)+'.obj')
                         save_obj(oppo_path, oppo_mesh[i], faces)
                 
-
+             
     return total_loss/len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, total_correct/total, error_, acc/len_dataset, 
 
 def scipy_to_torch_sparse(scp_matrix):
@@ -338,7 +342,7 @@ def main(args):
 
     labels = {}
     dataset_index = []
-    files = os.listdir(root_dir)
+    files = os.listdir("../project/batch_3/")
     for name in files:
         name_ = name.split("_")
         if name_[-1] != "box.json":
@@ -449,7 +453,7 @@ def main(args):
                 net.load_state_dict(checkpoint['state_dict'])
 
                 test_loss, test_kld, test_rec_loss, cls_acc, test_error, acc = evaluate(net, test_loader, len(test_loader),device, num_points, faces = faces, checkpoint_dir = checkpoint_dir, vis = args.vis)
-
+                print(test_error.shape)
                 print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc)
                 print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc, file = my_log)
              
@@ -464,11 +468,8 @@ def main(args):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Pytorch Trainer')
-
     parser.add_argument('-c', '--conf', help='path of config file')
-
     parser.add_argument('-t', '--train',type = bool, default= False)
-
     parser.add_argument('-s', '--test',type = bool, default= False)
 
     parser.add_argument('-v', '--vis',type = bool, default= False)
