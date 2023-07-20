@@ -31,5 +31,17 @@ You can download it from [**google drive**](https://drive.google.com/file/d/10lV
 
 ### 3. Training
 ```bash
-python main_CHUSE.py -- train True
-```
+python main.py -- train
+
+### 4. Testing
+```bash
+python main.py -- test --vis
+
+Note that the visualization functions only when the test mode is enabled.
+
+### 5. Inference
+```bash
+ python inference.py --error_list --inference --data_dir ./data/batch3 --output_path ./
+
+
+
