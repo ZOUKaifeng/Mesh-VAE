@@ -134,7 +134,7 @@ class CTimageData(Dataset):
                 # self.res.append([torch.Tensor(res[0]),torch.Tensor([res[1]]), torch.Tensor([res[2]])])
                 self.R.append(torch.FloatTensor(res[0]))
                 self.s.append(torch.FloatTensor([res[1]]))
-                self.m.append(torch.FloatTensor([res[2]]))
+                self.m.append(torch.FloatTensor(np.array([res[2]])))
 
 
 
