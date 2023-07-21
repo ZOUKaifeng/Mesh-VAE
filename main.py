@@ -342,11 +342,7 @@ def main(args):
     files = os.listdir(root_dir)
     for name in files:
         if not name.endswith(".obj") : continue
-        print( name )
         name_ = name.split("_")
-#        if name_[-1] != "box.json":
-      #  number = int(name_[0])
-         
         dataset_index.append(name)
         if name_[1] == "f":
             labels[name] = 0
@@ -420,7 +416,7 @@ def main(args):
                             p['lr'] = 0.00005
                     train_loss, train_kld, train_rec_loss, train_error, train_acc = train(net, train_loader, len(train_loader), optimizer, device, num_points,checkpoint_dir = checkpoint_dir)
 
-                    valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(net, valid_loader, len(valid_loader),device, num_points,checkpoint_dir = checkpoint_dir)
+                    valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(n, net, valid_loader, len(valid_loader),device, num_points,checkpoint_dir = checkpoint_dir)
 
                     if valid_loss <= best_loss:
                         save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir)
