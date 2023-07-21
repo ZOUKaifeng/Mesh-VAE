@@ -11,10 +11,10 @@ model selection
 
 import os
 from models.cheb_VAE import cheb_VAE
-from models.Spatial_conv import SpatialConv
-from models.graph_attention import GAT
+#from models.Spatial_conv import SpatialConv
+#from models.graph_attention import GAT
 
-from models.DGCNN import DGCNN
+#from models.DGCNN import DGCNN
 # # from models.Dynqmic_graph import DGCNN_cls
 from psbody.mesh import Mesh
 import torch

@@ -118,7 +118,7 @@ def train(model, train_loader, len_dataset, optimizer, device,num_points, checkp
         recon_mesh = recon_mesh.detach().cpu().numpy()
        
         gt_mesh = gt_mesh.detach().numpy()
-        diff = euclidean_distances(recon_mesh, gt_mesh)
+        diff = euclidean_distances(recon_mesh, gt_mesh).mean()
         error_ += diff
 
         if np.max(diff) > max_error:
@@ -132,7 +132,7 @@ def train(model, train_loader, len_dataset, optimizer, device,num_points, checkp
 
     return total_loss / len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, error_/len_dataset, total_correct/total
 
-def evaluate(model, test_loader, len_dataset, device,num_points, faces = None, checkpoint_dir = None, vis = False):
+def evaluate(n, model, test_loader, len_dataset, device,num_points, faces = None, checkpoint_dir = None, vis = False):
     model.eval()
     total_loss = 0
     total_rec_loss = 0
@@ -158,7 +158,7 @@ def evaluate(model, test_loader, len_dataset, device,num_points, faces = None, c
 
     if vis:
 
-        save_path = os.path.join(checkpoint_dir, "mesh")    
+        save_path = os.path.join(checkpoint_dir, "mesh"+str(n))    
         if not os.path.exists(save_path):
             os.makedirs(save_path)
         sucess_path = os.path.join(save_path, "sex_change_S")
@@ -227,25 +227,25 @@ def evaluate(model, test_loader, len_dataset, device,num_points, faces = None, c
                 for i in range(batch_size):
                     file = f[i].split('/')[-1]
                     file = file.split('.')[0]
-                    number = int(file[4:])
+                   # number = int(file[4:])
 
                     if index_pred[i] == index_gt[i]:
                 
-                        recon_path = os.path.join(sucess_path, str(number)+'_recon'+'.obj')
+                        recon_path = os.path.join(sucess_path, file+'_recon'+'.obj')
                         save_obj(recon_path, recon_mesh[i], faces)
-                        gt_path = os.path.join(sucess_path, str(number)+'_gt'+'.obj')
+                        gt_path = os.path.join(sucess_path, file+'_gt'+'.obj')
                         save_obj(gt_path, gt_mesh[i], faces)
 
-                        oppo_path = os.path.join(sucess_path, str(number)+'.obj')
+                        oppo_path = os.path.join(sucess_path, file+'.obj')
                         save_obj(oppo_path, oppo_mesh[i], faces)
                     else:
                     
-                        recon_path = os.path.join(failed_path, str(number)+'_recon'+'.obj')
+                        recon_path = os.path.join(failed_path, file+'_recon'+'.obj')
                         save_obj(recon_path, recon_mesh[i], faces)
-                        gt_path = os.path.join(failed_path, str(number)+'_gt'+'.obj')
+                        gt_path = os.path.join(failed_path, file+'_gt'+'.obj')
                         save_obj(gt_path, gt_mesh[i], faces)
 
-                        oppo_path = os.path.join(failed_path, str(number)+'.obj')
+                        oppo_path = os.path.join(failed_path, file+'.obj')
                         save_obj(oppo_path, oppo_mesh[i], faces)
                 
              
@@ -339,17 +339,15 @@ def main(args):
 
     labels = {}
     dataset_index = []
-    files = os.listdir("../project/batch_3/")
+    files = os.listdir(root_dir)
     for name in files:
+        if not name.endswith(".obj") : continue
         name_ = name.split("_")
-        if name_[-1] != "box.json":
-            number = int(name_[0])
-         
-            dataset_index.append(number)
-            if name_[1] == "f":
-                labels[number] = 0
-            else:
-                labels[number] = 1
+        dataset_index.append(name)
+        if name_[1] == "f":
+            labels[name] = 0
+        else:
+            labels[name] = 1
 
     acc = []
 
@@ -418,7 +416,7 @@ def main(args):
                             p['lr'] = 0.00005
                     train_loss, train_kld, train_rec_loss, train_error, train_acc = train(net, train_loader, len(train_loader), optimizer, device, num_points,checkpoint_dir = checkpoint_dir)
 
-                    valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(net, valid_loader, len(valid_loader),device, num_points,checkpoint_dir = checkpoint_dir)
+                    valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(n, net, valid_loader, len(valid_loader),device, num_points,checkpoint_dir = checkpoint_dir)
 
                     if valid_loss <= best_loss:
                         save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir)
@@ -433,14 +431,12 @@ def main(args):
                     train_rec_loss_history.append(train_rec_loss)
                     valid_rec_loss_history.append(valid_rec_loss)
                     error_history.append(np.mean(error))
-           
                     train_error_history.append(np.mean(train_error))
 
-
-
                     if epoch%10 == 0:
-                        print('Epoch {}, train loss {}(kld {}, recon loss {}, train acc {}) || valid loss {}(error {}, rec_loss {}, valid acc {}, acc {})'.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc))
-                        print('Epoch {}, train loss {}(kld {}, recon loss {} || valid loss {}(erorr {}, rec_loss {}, valid acc {}, acc {})'.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc), file = my_log)
+                        toPrint = 'Epoch {}, train loss {}(kld {}, recon loss {}, train acc {}) || valid loss {}(error {}, rec_loss {}, valid acc {}, sex change acc {})'
+                        print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc))
+                        print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc), file = my_log)
 
             if args.test:
                 test_dataset = CTimageData(root_dir, np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())
@@ -449,17 +445,10 @@ def main(args):
                 checkpoint = torch.load(checkpoint_file)
                 net.load_state_dict(checkpoint['state_dict'])
 
-                test_loss, test_kld, test_rec_loss, cls_acc, test_error, acc = evaluate(net, test_loader, len(test_loader),device, num_points, faces = faces, checkpoint_dir = checkpoint_dir, vis = args.vis)
+                test_loss, test_kld, test_rec_loss, cls_acc, test_error, acc = evaluate(n, net, test_loader, len(test_loader),device, num_points, faces = faces, checkpoint_dir = checkpoint_dir, vis = args.vis)
                 print(test_error.shape)
                 print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc)
                 print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc, file = my_log)
-             
-      
-        
-
-
-
-
 
 
 if __name__ == '__main__':

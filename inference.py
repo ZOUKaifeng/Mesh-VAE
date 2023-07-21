@@ -5,7 +5,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
+from torch_geometric.data import DataLoader
 import pandas as pd
 import mesh_operations
 from config_parser import read_config
@@ -74,19 +75,21 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
     dataset_index = []
     files = os.listdir(root_dir)
     for name in files:
-        name_ = name.split(".")
-        if name_[-1] == "obj":
-            number = int(name_[0][4:])
+        if not name.endswith(".obj") : continue
+        print( name )
+        name_ = name.split("_")
+#        if name_[-1] != "box.json":
+      #  number = int(name_[0])
          
-            dataset_index.append(number)  # load the index of the dataset
-            
-            labels[number] = -1  #set all the label to -1
+        dataset_index.append(name)
+        labels[name] = -1
 
 
     pred_sex = {}
+    error_dict = {}
 
     n = 1
-    dataset = CTimageData(root_dir, dataset_index, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
+    dataset = CTimageData(root_dir, dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
     sucess_path = os.path.join(output_path, "sex_change")
@@ -138,19 +141,26 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
 
             oppo_mesh = oppo_mesh.detach().cpu().numpy()
 
-       
+		   
+			
+            diff = euclidean_distances(recon_mesh, gt_mesh).mean(-1)
+
+            for i in range(diff.shape[0]):
+                error_dict.update({f[i]:format(diff[i], '.4f')})
+
+
+
             for i in range(batch_size):
                 file = f[i].split('/')[-1]
                 file = file.split('.')[0]
-                number = int(file[4:])
 
          
-                recon_path = os.path.join(sucess_path, str(number)+'_recon'+'.obj')
+                recon_path = os.path.join(sucess_path, file+'_recon'+'.obj')
                 save_obj(recon_path, recon_mesh[i], faces)
-                gt_path = os.path.join(sucess_path, str(number)+'_gt'+'.obj')
+                gt_path = os.path.join(sucess_path, file+'_gt'+'.obj')
                 save_obj(gt_path, gt_mesh[i], faces)
 
-                oppo_path = os.path.join(sucess_path, str(number)+'.obj')
+                oppo_path = os.path.join(sucess_path, file+'.obj')
                 save_obj(oppo_path, oppo_mesh[i], faces)
 
 
@@ -158,76 +168,8 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
     with open(os.path.join(output_path, 'pred_{}.json'.format(n)), 'w') as fp:
         json.dump(pred_sex, fp)
 
-
-def error_list(root_dir, net, output_path, mean, std, config, template, batch_size, faces):
-
-    labels = {}
-    dataset_index = []
-    files = os.listdir("../project/batch_3/")
-    for name in files:
-        name_ = name.split("_")
-        if name_[-1] != "box.json":
-            number = int(name_[0])
-         
-            dataset_index.append(number)
-            if name_[1] == "f":
-                labels[number] = 0
-            else:
-                labels[number] = 1
-
-    acc = []
-
-    import time
-
-
-
-    error_dict = {}
-    n = 1
-
-    y = np.ones(len(dataset_index))
-    me = 0
-    si = 0
-    train_me = 0
-    train_si = 0
-    train_error_ = 0
-    max_error = []
-    max_train_error = []
-
-
-    dataset = CTimageData(root_dir, dataset_index, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-
-
-    for data in tqdm(data_loader):
-        l1_reg = torch.tensor(0.0).to(device)
-
-        x,x_gt, y, filename, gt_mesh , R,m,s = data
-
-        x, x_gt = x.to(device), x_gt.to(device)
-        sex_hot = F.one_hot(y, num_classes = 2).to(device)
-     
-        loss, correct, out, z, y_hat = net(x, x_gt, sex_hot, m_type = "train")
-
-        batch_size = x.num_graphs
-
-        recon_mesh = out.cpu() * std + mean
-        s = s.unsqueeze(1)
-
-
-        recon_mesh = torch.bmm(recon_mesh * s, R) + m  #procrust
-        recon_mesh = recon_mesh.detach().cpu().numpy()
-       
-        gt_mesh = gt_mesh.detach().numpy()
-        diff = euclidean_distances(recon_mesh, gt_mesh).mean(-1)
-
-        for i in range(diff.shape[0]):
-            error_dict.update({filename[i]:format(diff[i], '.4f')})
-
-    import json
     with open(os.path.join(output_path, 'error_list_{}.json'.format(n)), 'w') as fp:
         json.dump(error_dict, fp)
-            
-
 
 def main(args):
 
@@ -285,7 +227,7 @@ def main(args):
 
     checkpoint_file = config['checkpoint_file']
 
-    n = 1
+    n = args.model
     checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
     checkpoint = torch.load(checkpoint_file)
     net.load_state_dict(checkpoint['state_dict'])
@@ -293,22 +235,16 @@ def main(args):
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
     with torch.no_grad():
-        if args.inference:
-            inference(root_dir, net, output_path, mean, std, config, template, batch_size, faces)
-
-        if args.error_list:
-            error_list(root_dir, net, output_path, mean, std, config, template, batch_size, faces)
-
+        inference(root_dir, net, output_path, mean, std, config, template, batch_size, faces)
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Pytorch Trainer')
     parser.add_argument('-u', '--conf', help='path of config file')
-    parser.add_argument('-i', '--inference',action='store_true')
-    parser.add_argument('-e', '--error_list',action='store_true')
     parser.add_argument('-o', '--output_path',type = str, default= " ")
     parser.add_argument('-d', '--data_dir',type = str, default= " ")
+    parser.add_argument('-n', '--model',type = int, default= 1)
 
 
 
