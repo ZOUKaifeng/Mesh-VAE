@@ -77,7 +77,7 @@ class CTimageData(Dataset):
                     if ind != '\n':
                         error.append(int(ind))
 
-        print("number of error file", len(error))
+        if len(error) > 0 : print("number of error file", len(error))
 
         filename = []
 
@@ -172,7 +172,7 @@ class CTimageData(Dataset):
 
             self.filename = filename
 
-        print(self.dtype ," dataset has been created, the number of {} data:".format(self.dtype), len(self.ori_data) )
+        print(self.dtype ," dataset has been created, number of {} samples:".format(self.dtype), len(self.ori_data) )
 
         # if self.dtype == 'test':
         #     if self.pre_transform is not None:

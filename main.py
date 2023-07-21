@@ -431,14 +431,12 @@ def main(args):
                     train_rec_loss_history.append(train_rec_loss)
                     valid_rec_loss_history.append(valid_rec_loss)
                     error_history.append(np.mean(error))
-           
                     train_error_history.append(np.mean(train_error))
 
-
-
                     if epoch%10 == 0:
-                        print('Epoch {}, train loss {}(kld {}, recon loss {}, train acc {}) || valid loss {}(error {}, rec_loss {}, valid acc {}, sex change acc {})'.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc))
-                        print('Epoch {}, train loss {}(kld {}, recon loss {} || valid loss {}(erorr {}, rec_loss {}, valid acc {}, sex change acc {})'.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc), file = my_log)
+                        toPrint = 'Epoch {}, train loss {}(kld {}, recon loss {}, train acc {}) || valid loss {}(error {}, rec_loss {}, valid acc {}, sex change acc {})'
+                        print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc))
+                        print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc), file = my_log)
 
             if args.test:
                 test_dataset = CTimageData(root_dir, np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())
@@ -451,13 +449,6 @@ def main(args):
                 print(test_error.shape)
                 print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc)
                 print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc, file = my_log)
-             
-      
-        
-
-
-
-
 
 
 if __name__ == '__main__':
