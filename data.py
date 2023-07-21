@@ -1,15 +1,4 @@
-"""
-!/home/miv/kzou/anaconda3/envs/CTimage python3
 
-Created on Mon Oct 05 13:43:10 2020
-
-@author: Kaifeng
-
-Version 2.0 add torch geometric data
-
-To do:
-    transform dont have attribute normalize
-"""
 
 import os
 import torch
@@ -19,7 +8,7 @@ import numpy as np
 # from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from transform import Normalize
-from torch.data import Data, Dataset
+from torch.utils.data import Data, Dataset
 import mesh_operations
 from psbody.mesh import Mesh
 
@@ -38,6 +27,8 @@ def OnUnitCube(data):
     data.x = data.x - m
 
     return data, s, m
+
+
 
 class CTimageData(Dataset):
     '''

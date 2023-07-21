@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
-from torch_geometric.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import mesh_operations
 from config_parser import read_config
@@ -108,7 +108,7 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
 
             for i in range(x_gt.shape[0]):
 
-                pred_sex.update({ f[i]:str(pred[i])})
+                pred_sex.update({ f[i]:str(pred[i].cpu().numpy())})
 
             sex_hot = F.one_hot(pred, num_classes = 2).to(device)
             loss, correct, out, z, y_hat = net(x, x_gt, sex_hot, m_type = "test")

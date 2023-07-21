@@ -177,9 +177,6 @@ def evaluate(model, test_loader, len_dataset, device,num_points, faces = None, c
             loss, correct, out, z, y_hat = model(x, x_gt, sex_hot, m_type = "test")
 
 
-
-
-
             kld = z[0].mean()
             rec_loss = z[1].mean()
             #loss = kld + rec_loss 
@@ -469,10 +466,10 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Pytorch Trainer')
     parser.add_argument('-c', '--conf', help='path of config file')
-    parser.add_argument('-t', '--train',type = bool, default= False)
-    parser.add_argument('-s', '--test',type = bool, default= False)
+    parser.add_argument('-t', '--train',action='store_true')
+    parser.add_argument('-s', '--test',action='store_true')
 
-    parser.add_argument('-v', '--vis',type = bool, default= False)
+    parser.add_argument('-v', '--vis',action='store_true')
 
     args = parser.parse_args()
 
