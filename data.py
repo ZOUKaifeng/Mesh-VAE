@@ -8,10 +8,10 @@ import numpy as np
 # from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from transform import Normalize
-from torch.utils.data import Data, Dataset
+from torch.utils.data import Dataset
 import mesh_operations
 from psbody.mesh import Mesh
-
+from torch_geometric.data import Data
 import open3d as o3d
 from sklearn.model_selection import train_test_split
 from utils import procrustes
@@ -71,7 +71,7 @@ class CTimageData(Dataset):
 
     def preprocess(self):
         error = []
-        if self.error_file is not None:
+        if self.error_file != "":
             with open(self.error_file, "r") as file :
                 for ind in file:
                     if ind != '\n':
@@ -103,7 +103,7 @@ class CTimageData(Dataset):
         #     os.makedirs('./new_dataset/')
 
         for i in self.dataset_index:
-            file = os.path.join(self.root_dir, "mesh"+str(i)+".obj")
+            file = os.path.join(self.root_dir, i )
             if i not in error and os.path.exists(file):   #i not in error and 
                # print(file)
                 
