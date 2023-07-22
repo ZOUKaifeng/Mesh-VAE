@@ -76,15 +76,11 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
     files = os.listdir(root_dir)
     for name in files:
         if not name.endswith(".obj") : continue
-        print( name )
         name_ = name.split("_")
-#        if name_[-1] != "box.json":
-      #  number = int(name_[0])
-         
         dataset_index.append(name)
         labels[name] = -1
 
-
+    results = {}
     pred_sex = {}
     error_dict = {}
 
@@ -110,8 +106,9 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
 
 
             for i in range(x_gt.shape[0]):
-
-                pred_sex.update({ f[i]:str(pred[i].cpu().numpy())})
+                predicted_sex = pred[i].cpu().numpy()
+                results[ f[ i ].split( "/" ).pop() ] = { "sex" : int( str( predicted_sex ) ) }
+                pred_sex.update({ f[i]:str(predicted_sex)})
 
             sex_hot = F.one_hot(pred, num_classes = 2).to(device)
             loss, correct, out, z, y_hat = net(x, x_gt, sex_hot, m_type = "test")
@@ -144,8 +141,10 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
 		   
 			
             diff = euclidean_distances(recon_mesh, gt_mesh).mean(-1)
+            maxDiff = euclidean_distances(recon_mesh, gt_mesh).max(-1)
 
             for i in range(diff.shape[0]):
+                results[ f[ i ].split( "/" ).pop() ][ "reconstruction_error" ] = { "mean" : float( str ( diff[ i ] ) ), "max" : float( str ( maxDiff[ i ] ) ) }
                 error_dict.update({f[i]:format(diff[i], '.4f')})
 
 
@@ -170,6 +169,9 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
 
     with open(os.path.join(output_path, 'error_list_{}.json'.format(n)), 'w') as fp:
         json.dump(error_dict, fp)
+    print( results )
+    with open(os.path.join(output_path, 'inference_{}.json'.format(n)), 'w') as fp:
+        json.dump(results, fp)
 
 def main(args):
 
