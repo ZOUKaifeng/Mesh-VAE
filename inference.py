@@ -84,11 +84,10 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
     pred_sex = {}
     error_dict = {}
 
-    n = 1
     dataset = CTimageData(root_dir, dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-    sucess_path = os.path.join(output_path, "sex_change")
+    sucess_path = os.path.join(output_path, "sex_change" )
 
 
     if not os.path.exists(sucess_path):
@@ -164,13 +163,13 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
 
 
     import json
-    with open(os.path.join(output_path, 'pred_{}.json'.format(n)), 'w') as fp:
+    with open(os.path.join(output_path, 'pred.json'), 'w') as fp:
         json.dump(pred_sex, fp)
 
-    with open(os.path.join(output_path, 'error_list_{}.json'.format(n)), 'w') as fp:
+    with open(os.path.join(output_path, 'error_list.json'), 'w') as fp:
         json.dump(error_dict, fp)
     print( results )
-    with open(os.path.join(output_path, 'inference_{}.json'.format(n)), 'w') as fp:
+    with open(os.path.join(output_path, 'inference.json'), 'w') as fp:
         json.dump(results, fp)
 
 def main(args):
@@ -227,10 +226,7 @@ def main(args):
 
     #criterion = BCEFocalLoss()
 
-    checkpoint_file = config['checkpoint_file']
-
-    n = args.model
-    checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
+    checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(args.model)+'.pt')
     checkpoint = torch.load(checkpoint_file)
     net.load_state_dict(checkpoint['state_dict'])
     norm_dict = np.load(os.path.join(checkpoint_dir, 'norm.npz'), allow_pickle = True)
