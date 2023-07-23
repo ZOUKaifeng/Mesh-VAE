@@ -243,14 +243,10 @@ def main(args):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Pytorch Trainer')
-    parser.add_argument('-u', '--conf', help='path of config file')
+    parser.add_argument('-c', '--conf', help='path of config file')
     parser.add_argument('-o', '--output_path',type = str, default= " ")
     parser.add_argument('-d', '--data_dir',type = str, default= " ")
     parser.add_argument('-n', '--model',type = int, default= 1)
-
-
-
-
     args = parser.parse_args()
 
     if args.conf is None:
