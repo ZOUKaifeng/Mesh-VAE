@@ -70,7 +70,7 @@ def read_config(fname):
     config_parms['label_file'] = config.get('Input Output', 'label_file')
     config_parms['error_file'] = config.get('Input Output', 'error_file')
     config_parms['nb_patient'] = config.getint('Input Output', 'nb_patient')
-    config_parms['log_file'] = config_parms['checkpoint_dir'] + config.get('Input Output', 'log_file')
+    config_parms['log_file'] = os.path.join( config_parms['checkpoint_dir'], config.get('Input Output', 'log_file') )
     config_parms['type'] = config.get('Input Output', 'type')
     config_parms['num_classes'] = config.getint('Input Output', 'num_classes')
     config_parms['num_style'] = config.getint('Input Output', 'num_style')
