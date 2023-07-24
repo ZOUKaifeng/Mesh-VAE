@@ -45,7 +45,6 @@ class CTimageData(Dataset):
         self.dataset_index = dataset_index
         self.pre_transform = pre_transform
         # self.random_state = config['random_seeds']
-        # self.test_size = config['test_size']
         self.dtype = dtype
         self.res = []
         self.preprocess()
@@ -94,13 +93,6 @@ class CTimageData(Dataset):
         self.ori_data = []
         self.edge_index = None
   
-       # train_set, test_set =  train_test_split(self.dataset_index, test_size=self.test_size, random_state=self.random_state)
-      #  template = OnUnitCube(self.template)
-
-        #self.template, _, _ = OnUnitCube(self.template)
-        # if not os.path.exists('./new_dataset/'):
-        #     os.makedirs('./new_dataset/')
-
         for i in self.dataset_index:
             file = os.path.join(self.root_dir, i )
             if i not in error and os.path.exists(file):   #i not in error and 

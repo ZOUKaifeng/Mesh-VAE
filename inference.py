@@ -200,7 +200,6 @@ def main(args):
     error_file = config['error_file']
     log_path = config['log_file']
 
-    test_size = config['test_size']
     eval_flag = config['eval']
     lr = config['learning_rate']
     lr_decay = config['learning_rate_decay']

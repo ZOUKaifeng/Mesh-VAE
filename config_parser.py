@@ -14,12 +14,12 @@ def set_default_parameters(config):
     config.set('Input Output', 'num_style', '10')
     config.set('Input Output', 'model', 'optimal_sigma_VAE')
     config.set('Input Output', 'folds', '5')
+    config.set('Input Output', 'test_size', 0.3)
 
 
 
     config.add_section('ChebModel  Parameters')
 
-    config.set('ChebModel  Parameters', 'test_size', 0.3)
     config.set('ChebModel  Parameters', 'eval', 'False')
     config.set('ChebModel  Parameters', 'checkpoint_file', '')
     config.set('ChebModel  Parameters', 'n_layers', '2')
@@ -63,8 +63,8 @@ def read_config(fname):
     config_parms['num_style'] = config.getint('Input Output', 'num_style')
     config_parms['model'] = config.get('Input Output', 'model')
     config_parms['folds'] = config.getint('Input Output', 'folds')
+    config_parms['test_size'] = config.getfloat('Input Output', 'test_size')
 
-    config_parms['test_size'] = config.getfloat('ChebModel  Parameters', 'test_size')
     config_parms['eval'] = config.getboolean('ChebModel  Parameters', 'eval')
     config_parms['checkpoint_file'] = config.get('ChebModel  Parameters', 'checkpoint_file')
     config_parms['n_layers'] = config.getint('ChebModel  Parameters', 'n_layers')
