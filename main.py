@@ -288,7 +288,6 @@ def main(args):
 
     root_dir = config['root_dir']
 
-    label_file = config['label_file']
     error_file = config['error_file']
     log_path = config['log_file']
     random_seeds = config['random_seeds']

@@ -6,7 +6,6 @@ def set_default_parameters(config):
     config.set('Input Output', 'checkpoint_dir', './results/cheb_VAE_optimal_sigma_VAE')
     config.set('Input Output', 'template', '../project/template/mesh_template5k_edited.obj')
     config.set('Input Output', 'root_dir', '../project/data/mesh_edited')
-    config.set('Input Output', 'label_file', '../project/files/files.txt')
     config.set('Input Output', 'error_file', '../project/files/error.txt')
     config.set('Input Output', 'log_file', '/log.txt')
     
@@ -56,7 +55,6 @@ def read_config(fname):
     config_parms['root_dir'] = config.get('Input Output', 'root_dir')
     config_parms['checkpoint_dir'] = config.get('Input Output', 'checkpoint_dir')
     config_parms['template'] = config.get('Input Output', 'template')
-    config_parms['label_file'] = config.get('Input Output', 'label_file')
     config_parms['error_file'] = config.get('Input Output', 'error_file')
     config_parms['log_file'] = os.path.join( config_parms['checkpoint_dir'], config.get('Input Output', 'log_file') )
     config_parms['type'] = config.get('Input Output', 'type')

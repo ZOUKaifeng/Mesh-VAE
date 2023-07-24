@@ -197,7 +197,6 @@ def main(args):
     output_path = args.output_path
 
 
-    label_file = config['label_file']
     error_file = config['error_file']
     log_path = config['log_file']
 

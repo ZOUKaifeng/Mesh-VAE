@@ -34,7 +34,6 @@ class CTimageData(Dataset):
     '''
     root_dir: point cloud data path
     error_file: outlier list
-    label_file: 
     template: average point cloud
     '''
     def __init__(self, root_dir, dataset_index , config, label,  template, dtype = 'train',   pre_transform = None):
@@ -199,9 +198,8 @@ class CTimageData(Dataset):
 if __name__ == '__main__':
     root_dir = "./transfo_points"
     dataset_index = list(range(100))
-    label_file = './files/files.txt'
     template = np.array(pd.read_csv("./template/final_points.csv.gz", header=None).values)
-    dataset = CTimageData(root_dir, dataset_index, dtype = 'test',label_file = label_file, template = template)
+    dataset = CTimageData(root_dir, dataset_index, dtype = 'test', template = template)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True, num_workers=4)
 
     for i in dataloader:
