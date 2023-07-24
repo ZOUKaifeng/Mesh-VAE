@@ -73,7 +73,7 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
 
     labels = {}
     dataset_index = []
-    files = os.listdir(root_dir)
+    files = sorted( os.listdir(root_dir) )
     for name in files:
         if not name.endswith(".obj") : continue
         name_ = name.split("_")
@@ -168,7 +168,7 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
 
     with open(os.path.join(output_path, 'error_list.json'), 'w') as fp:
         json.dump(error_dict, fp)
-    print( results )
+
     with open(os.path.join(output_path, 'inference.json'), 'w') as fp:
         json.dump(results, fp)
 
@@ -196,12 +196,10 @@ def main(args):
     root_dir = args.data_dir
     output_path = args.output_path
 
-    nb_patients = config['nb_patient']
 
     label_file = config['label_file']
     error_file = config['error_file']
     log_path = config['log_file']
-    random_seeds = config['random_seeds']
 
     test_size = config['test_size']
     eval_flag = config['eval']

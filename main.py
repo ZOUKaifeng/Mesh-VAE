@@ -287,7 +287,6 @@ def main(args):
 
 
     root_dir = config['root_dir']
-    nb_patients = config['nb_patient']
 
     label_file = config['label_file']
     error_file = config['error_file']
@@ -345,7 +344,7 @@ def main(args):
 
     labels = {}
     dataset_index = []
-    files = os.listdir(root_dir)
+    files = sorted( os.listdir(root_dir) )
     for name in files:
         if not name.endswith(".obj") : continue
         name_ = name.split("_")

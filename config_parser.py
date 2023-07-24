@@ -9,7 +9,6 @@ def set_default_parameters(config):
     config.set('Input Output', 'label_file', '../project/files/files.txt')
     config.set('Input Output', 'error_file', '../project/files/error.txt')
     config.set('Input Output', 'log_file', '/log.txt')
-    config.set('Input Output', 'nb_patient', 198)
     
     config.set('Input Output', 'type', 'cheb_VAE')
     config.set('Input Output', 'num_classes', '2')
@@ -33,16 +32,6 @@ def set_default_parameters(config):
     config.set('ChebModel  Parameters', 'workers_thread', 6)
     config.set('ChebModel  Parameters', 'optimizer', 'adam')
     config.set('ChebModel  Parameters', 'random_seeds', 2020)
-
-
-    config.add_section('DGCNN Parameters')
-    config.set('DGCNN Parameters', 'K', 5)
-    config.set('DGCNN Parameters', 'emb_dims', '16,16,16')
-    config.set('DGCNN Parameters', 'dropout', 0.5)
-
-
-    config.add_section('GAT Parameters')
-    config.set('GAT Parameters', 'attention_head', 3)
 
 
     config.add_section('Learning Parameters')
@@ -69,7 +58,6 @@ def read_config(fname):
     config_parms['template'] = config.get('Input Output', 'template')
     config_parms['label_file'] = config.get('Input Output', 'label_file')
     config_parms['error_file'] = config.get('Input Output', 'error_file')
-    config_parms['nb_patient'] = config.getint('Input Output', 'nb_patient')
     config_parms['log_file'] = os.path.join( config_parms['checkpoint_dir'], config.get('Input Output', 'log_file') )
     config_parms['type'] = config.get('Input Output', 'type')
     config_parms['num_classes'] = config.getint('Input Output', 'num_classes')
@@ -88,12 +76,6 @@ def read_config(fname):
     config_parms['random_seeds'] = config.getint('ChebModel  Parameters', 'random_seeds')
     config_parms['polygon_order'] = [int(x) for x in config.get('ChebModel  Parameters', 'polygon_order').split(',')]
 
-
-    config_parms['K'] = config.getint('DGCNN Parameters', 'K')
-    config_parms['emb_dims'] = [int(x) for x in config.get('DGCNN Parameters', 'emb_dims').split(',')] 
-    config_parms['dropout'] = config.getfloat('DGCNN Parameters', 'dropout')
-
-    config_parms['attention_head'] = config.getint('GAT Parameters', 'attention_head')
 
     config_parms['batch_size'] = config.getint('Learning Parameters', 'batch_size')
     config_parms['learning_rate'] = config.getfloat('Learning Parameters', 'learning_rate')
