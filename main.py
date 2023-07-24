@@ -27,6 +27,7 @@ from utils import *
 from psbody.mesh import Mesh
 from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
 import matplotlib.pyplot as plt
+import random
 
  
 
@@ -264,6 +265,7 @@ def scipy_to_torch_sparse(scp_matrix):
 
 def main(args):
 
+
     if not os.path.exists(args.conf):
         print('Config not found' + args.conf)
     print(args.conf)
@@ -323,6 +325,10 @@ def main(args):
     print('optimizer type', opt, file = my_log)
     print('learning rate:', lr, file = my_log)
 
+	
+    torch.manual_seed(random_seeds)
+    np.random.seed(random_seeds)
+    random.seed(random_seeds)
 
     start_epoch = 1
     print(checkpoint_file)
