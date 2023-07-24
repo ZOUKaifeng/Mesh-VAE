@@ -13,6 +13,7 @@ def set_default_parameters(config):
     config.set('Input Output', 'num_classes', '2')
     config.set('Input Output', 'num_style', '10')
     config.set('Input Output', 'model', 'optimal_sigma_VAE')
+    config.set('Input Output', 'folds', '5')
 
 
 
@@ -61,6 +62,7 @@ def read_config(fname):
     config_parms['num_classes'] = config.getint('Input Output', 'num_classes')
     config_parms['num_style'] = config.getint('Input Output', 'num_style')
     config_parms['model'] = config.get('Input Output', 'model')
+    config_parms['folds'] = config.getint('Input Output', 'folds')
 
     config_parms['test_size'] = config.getfloat('ChebModel  Parameters', 'test_size')
     config_parms['eval'] = config.getboolean('ChebModel  Parameters', 'eval')

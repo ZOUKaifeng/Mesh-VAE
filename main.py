@@ -292,6 +292,7 @@ def main(args):
     error_file = config['error_file']
     log_path = config['log_file']
     random_seeds = config['random_seeds']
+    n_splits = config['folds']
 
     test_size = config['test_size']
     eval_flag = config['eval']
@@ -360,23 +361,10 @@ def main(args):
 
     for i in range(1):
 
-
-        # train_, test_index = train_test_split(dataset_index, test_size=test_size, random_state = random_seeds)
-
-
-        skf = RepeatedStratifiedKFold(n_splits=5, n_repeats=1, random_state = random_seeds)  # 5-folds repeated 10 times  
+        skf = RepeatedStratifiedKFold(n_splits=n_splits, n_repeats=1, random_state = random_seeds)
 
         n = 0
-
         y = np.ones(len(dataset_index))
-        me = 0
-        si = 0
-        train_me = 0
-        train_si = 0
-        train_error_ = 0
-        max_error = []
-        max_train_error = []
-
 
         for train_index, test_index in skf.split(dataset_index, y):
             train_, valid_index = train_test_split(np.array(dataset_index)[train_index], test_size=test_size, random_state = random_seeds)
@@ -426,8 +414,6 @@ def main(args):
                     if valid_loss <= best_loss:
                         save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir)
                         best_loss = valid_loss
-                        train_error_ = train_error
-           
 
                     valid_loss_history.append(valid_loss)
                     train_loss_history.append(train_loss)
