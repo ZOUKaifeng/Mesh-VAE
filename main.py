@@ -283,6 +283,7 @@ def main(args):
 
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if args.cpu : device = 'cpu'
     print("Using device:",device)
 
 
@@ -457,12 +458,12 @@ def main(args):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Pytorch Trainer')
+    parser = argparse.ArgumentParser(description='Pytorch Trainer', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-c', '--conf', help='path of config file')
     parser.add_argument('-t', '--train',action='store_true')
     parser.add_argument('-s', '--test',action='store_true')
-
-    parser.add_argument('-v', '--vis',action='store_true')
+    parser.add_argument('--cpu',action='store_true', help = "force cpu")
+    parser.add_argument('-v', '--vis',action='store_true', help = "save transformed meshes")
 
     args = parser.parse_args()
 
@@ -470,6 +471,4 @@ if __name__ == '__main__':
         args.conf = os.path.join(os.path.dirname(__file__), './files/default.cfg')
         print('configuration file not specified, trying to load '
               'it from current directory', args.conf)
-    acc = 0
-
-    acc = main(args)
+    main(args)
