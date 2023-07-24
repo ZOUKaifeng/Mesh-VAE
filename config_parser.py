@@ -20,7 +20,6 @@ def set_default_parameters(config):
 
     config.add_section('ChebModel  Parameters')
 
-    config.set('ChebModel  Parameters', 'eval', 'False')
     config.set('ChebModel  Parameters', 'checkpoint_file', '')
     config.set('ChebModel  Parameters', 'n_layers', '2')
     config.set('ChebModel  Parameters', 'num_hidden', '32')
@@ -65,7 +64,6 @@ def read_config(fname):
     config_parms['folds'] = config.getint('Input Output', 'folds')
     config_parms['test_size'] = config.getfloat('Input Output', 'test_size')
 
-    config_parms['eval'] = config.getboolean('ChebModel  Parameters', 'eval')
     config_parms['checkpoint_file'] = config.get('ChebModel  Parameters', 'checkpoint_file')
     config_parms['n_layers'] = config.getint('ChebModel  Parameters', 'n_layers')
     config_parms['num_hidden'] = config.getint('ChebModel  Parameters', 'num_hidden')

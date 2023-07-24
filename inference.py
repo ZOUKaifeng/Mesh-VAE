@@ -200,7 +200,6 @@ def main(args):
     error_file = config['error_file']
     log_path = config['log_file']
 
-    eval_flag = config['eval']
     lr = config['learning_rate']
     lr_decay = config['learning_rate_decay']
     weight_decay = config['weight_decay']
