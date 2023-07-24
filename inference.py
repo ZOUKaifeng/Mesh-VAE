@@ -10,7 +10,7 @@ from torch_geometric.data import DataLoader
 import pandas as pd
 import mesh_operations
 from config_parser import read_config
-from data import CTimageData
+from data import MeshData
 from model import get_model
 from transform import Normalize
 from utils import *
@@ -84,7 +84,7 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
     pred_sex = {}
     error_dict = {}
 
-    dataset = CTimageData(root_dir, dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+    dataset = MeshData(root_dir, dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
     sucess_path = os.path.join(output_path, "sex_change" )

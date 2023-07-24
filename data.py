@@ -30,7 +30,7 @@ def OnUnitCube(data):
 
 
 
-class CTimageData(Dataset):
+class MeshData(Dataset):
     '''
     root_dir: point cloud data path
     error_file: outlier list
@@ -191,7 +191,7 @@ if __name__ == '__main__':
     root_dir = "./transfo_points"
     dataset_index = list(range(100))
     template = np.array(pd.read_csv("./template/final_points.csv.gz", header=None).values)
-    dataset = CTimageData(root_dir, dataset_index, dtype = 'test', template = template)
+    dataset = MeshData(root_dir, dataset_index, dtype = 'test', template = template)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True, num_workers=4)
 
     for i in dataloader:
