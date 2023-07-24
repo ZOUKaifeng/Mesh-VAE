@@ -285,7 +285,6 @@ def main(args):
     random_seeds = config['random_seeds']
     n_splits = config['folds']
     test_size = config['test_size']
-    eval_flag = config['eval']
     lr = config['learning_rate']
     lr_decay = config['learning_rate_decay']
     weight_decay = config['weight_decay']
