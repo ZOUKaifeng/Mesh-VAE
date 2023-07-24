@@ -15,6 +15,7 @@ def set_default_parameters(config):
     config.set('Input Output', 'model', 'optimal_sigma_VAE')
     config.set('Input Output', 'folds', '5')
     config.set('Input Output', 'test_size', 0.3)
+    config.set('Input Output', 'random_seeds', 2020)
 
 
 
@@ -29,11 +30,10 @@ def set_default_parameters(config):
     config.set('ChebModel  Parameters', 'polygon_order', '6, 6, 6')
     config.set('ChebModel  Parameters', 'num_conv_filters', '16, 16, 16')
     config.set('ChebModel  Parameters', 'workers_thread', 6)
-    config.set('ChebModel  Parameters', 'optimizer', 'adam')
-    config.set('ChebModel  Parameters', 'random_seeds', 2020)
 
 
     config.add_section('Learning Parameters')
+    config.set('Learning Parameters', 'optimizer', 'adam')
     config.set('Learning Parameters', 'batch_size', 16)
     config.set('Learning Parameters', 'learning_rate', 1e-3)
     config.set('Learning Parameters', 'learning_rate_decay', 0.99)
@@ -63,6 +63,7 @@ def read_config(fname):
     config_parms['model'] = config.get('Input Output', 'model')
     config_parms['folds'] = config.getint('Input Output', 'folds')
     config_parms['test_size'] = config.getfloat('Input Output', 'test_size')
+    config_parms['random_seeds'] = config.getint('Input Output', 'random_seeds')
 
     config_parms['checkpoint_file'] = config.get('ChebModel  Parameters', 'checkpoint_file')
     config_parms['n_layers'] = config.getint('ChebModel  Parameters', 'n_layers')
@@ -70,11 +71,10 @@ def read_config(fname):
     config_parms['downsampling_factors'] =  [int(x) for x in config.get('ChebModel  Parameters', 'downsampling_factors').split(',')]
     config_parms['num_conv_filters'] = [int(x) for x in config.get('ChebModel  Parameters', 'num_conv_filters').split(',')]
     config_parms['workers_thread'] = config.getint('ChebModel  Parameters', 'workers_thread')
-    config_parms['optimizer'] = config.get('ChebModel  Parameters', 'optimizer')
-    config_parms['random_seeds'] = config.getint('ChebModel  Parameters', 'random_seeds')
     config_parms['polygon_order'] = [int(x) for x in config.get('ChebModel  Parameters', 'polygon_order').split(',')]
 
 
+    config_parms['optimizer'] = config.get('Learning Parameters', 'optimizer')
     config_parms['batch_size'] = config.getint('Learning Parameters', 'batch_size')
     config_parms['learning_rate'] = config.getfloat('Learning Parameters', 'learning_rate')
     config_parms['learning_rate_decay'] = config.getfloat('Learning Parameters', 'learning_rate_decay')
