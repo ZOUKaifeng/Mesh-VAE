@@ -325,12 +325,12 @@ class cheb_VAE(torch.nn.Module):
         batch_size = x.shape[0]
         kld = logpdf.KLD(mu_z, logvar_z)
      
-        log_sigma =   torch.Tensor([1]).to(device = x.device)
+        log_sigma =   torch.Tensor([1]).to(device = x.device) # decrease 1 to  higher for better reconstruction
         log_sigma = logpdf.softclip(log_sigma, -6)
 
 
             #rec_loss = logpdf.bernoulli(recon_x, x)
-        rec_loss = logpdf.gaussian_nll(recon_x, log_sigma, x).sum(-1).sum(-1)
+        rec_loss = logpdf.gaussian_nll(recon_x, log_sigma, x).sum(-1).sum(-1) # test wether recon_x contains nan?
    
         index_pred = torch.argmax(y_hat,  dim = 1)
         index = torch.argmax(y,  dim = 1)

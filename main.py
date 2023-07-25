@@ -20,14 +20,16 @@ from torch_geometric.data import Dataset, DataLoader
 import pandas as pd
 import mesh_operations
 from config_parser import read_config
-from data import CTimageData
+from data import MeshData
 from model import get_model
 from transform import Normalize
 from utils import *
 from psbody.mesh import Mesh
 from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
 import matplotlib.pyplot as plt
-
+import random
+import json
+import time
  
 
 def save_obj(filename, vertices, faces):
@@ -270,30 +272,21 @@ def main(args):
     config = read_config(args.conf)
 
     print('Initializing parameters')
-    # template_mesh = pc2mesh(template)
-
- 
 
     checkpoint_dir = config['checkpoint_dir']
     if not os.path.exists(checkpoint_dir):
         os.makedirs(checkpoint_dir)
 
-
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if args.cpu : device = 'cpu'
     print("Using device:",device)
 
-
     root_dir = config['root_dir']
-    nb_patients = config['nb_patient']
-
-    label_file = config['label_file']
     error_file = config['error_file']
     log_path = config['log_file']
     random_seeds = config['random_seeds']
-
+    n_splits = config['folds']
     test_size = config['test_size']
-    eval_flag = config['eval']
     lr = config['learning_rate']
     lr_decay = config['learning_rate_decay']
     weight_decay = config['weight_decay']
@@ -323,6 +316,10 @@ def main(args):
     print('optimizer type', opt, file = my_log)
     print('learning rate:', lr, file = my_log)
 
+	
+    torch.manual_seed(random_seeds)
+    np.random.seed(random_seeds)
+    random.seed(random_seeds)
 
     start_epoch = 1
     print(checkpoint_file)
@@ -339,7 +336,7 @@ def main(args):
 
     labels = {}
     dataset_index = []
-    files = os.listdir(root_dir)
+    files = sorted( os.listdir(root_dir) )
     for name in files:
         if not name.endswith(".obj") : continue
         name_ = name.split("_")
@@ -349,64 +346,31 @@ def main(args):
         else:
             labels[name] = 1
 
-    acc = []
-
-    import time
-
     for i in range(1):
 
-
-        # train_, test_index = train_test_split(dataset_index, test_size=test_size, random_state = random_seeds)
-
-
-        skf = RepeatedStratifiedKFold(n_splits=5, n_repeats=1, random_state = random_seeds)  # 5-folds repeated 10 times  
+        skf = RepeatedStratifiedKFold(n_splits=n_splits, n_repeats=1, random_state = random_seeds)
 
         n = 0
-
         y = np.ones(len(dataset_index))
-        me = 0
-        si = 0
-        train_me = 0
-        train_si = 0
-        train_error_ = 0
-        max_error = []
-        max_train_error = []
-
 
         for train_index, test_index in skf.split(dataset_index, y):
             train_, valid_index = train_test_split(np.array(dataset_index)[train_index], test_size=test_size, random_state = random_seeds)
-
-            train_loss_history = []
-            valid_loss_history = []
-            train_kld_history = []
-            valid_kld_history = []
-            train_rec_loss_history = []
-            valid_rec_loss_history = []
-
-            error_history = []
-            sigma_history = []
-
-            train_error_history = []
-  
-            
+            history = []
             net.load_state_dict(torch.load(os.path.join(checkpoint_dir, 'initial_weight.pt')))
-
-
             optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
-
             n+=1
 
-
             if args.train:
-                train_dataset = CTimageData(root_dir, train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
+                train_dataset = MeshData(root_dir, train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
                 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-                valid_dataset = CTimageData(root_dir, valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+                valid_dataset = MeshData(root_dir, valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
                 valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
                 best_loss = 10000000
 
-
                 for epoch in range(start_epoch, total_epochs + 1):
+
+                    begin = time.time()
 
                     if epoch > 500:
                         for p in optimizer.param_groups:
@@ -418,28 +382,42 @@ def main(args):
 
                     valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(n, net, valid_loader, len(valid_loader),device, num_points,checkpoint_dir = checkpoint_dir)
 
+                    duration = time.time() - begin
+
                     if valid_loss <= best_loss:
                         save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir)
                         best_loss = valid_loss
-                        train_error_ = train_error
-           
 
-                    valid_loss_history.append(valid_loss)
-                    train_loss_history.append(train_loss)
-                    train_kld_history.append(train_kld)
-                    valid_kld_history.append(valid_kld)
-                    train_rec_loss_history.append(train_rec_loss)
-                    valid_rec_loss_history.append(valid_rec_loss)
-                    error_history.append(np.mean(error))
-                    train_error_history.append(np.mean(train_error))
+                    history.append( {
+                        "epoch" : epoch,
+                        "begin" : begin,
+                        "duration" : duration,
+                        "training" : {
+                            "loss" : train_loss,
+                            "kld" : train_kld,
+                            "reconstruction_loss" : train_rec_loss,
+                            "accuracy" : train_acc.item(),
+                            "error" : np.mean(train_error)
+                        },
+                        "validation" : {
+                            "loss" : valid_loss,
+                            "kld" : valid_kld,
+                            "reconstruction_loss" : valid_rec_loss,
+                            "accuracy" : float( str( acc ) ),
+                            "error" : np.mean(error)
+                        }
+                    } )
 
                     if epoch%10 == 0:
                         toPrint = 'Epoch {}, train loss {}(kld {}, recon loss {}, train acc {}) || valid loss {}(error {}, rec_loss {}, valid acc {}, sex change acc {})'
                         print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc))
                         print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc), file = my_log)
 
+                with open(os.path.join(checkpoint_dir, 'history' + str( n ) + '.json'), 'w') as fp:
+                    json.dump(history, fp)
+
             if args.test:
-                test_dataset = CTimageData(root_dir, np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+                test_dataset = MeshData(root_dir, np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())
                 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
                 checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
                 checkpoint = torch.load(checkpoint_file)
@@ -453,12 +431,12 @@ def main(args):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Pytorch Trainer')
+    parser = argparse.ArgumentParser(description='Pytorch Trainer', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-c', '--conf', help='path of config file')
     parser.add_argument('-t', '--train',action='store_true')
     parser.add_argument('-s', '--test',action='store_true')
-
-    parser.add_argument('-v', '--vis',action='store_true')
+    parser.add_argument('--cpu',action='store_true', help = "force cpu")
+    parser.add_argument('-v', '--vis',action='store_true', help = "save transformed meshes")
 
     args = parser.parse_args()
 
@@ -466,6 +444,4 @@ if __name__ == '__main__':
         args.conf = os.path.join(os.path.dirname(__file__), './files/default.cfg')
         print('configuration file not specified, trying to load '
               'it from current directory', args.conf)
-    acc = 0
-
-    acc = main(args)
+    main(args)

@@ -10,7 +10,7 @@ from torch_geometric.data import DataLoader
 import pandas as pd
 import mesh_operations
 from config_parser import read_config
-from data import CTimageData
+from data import MeshData
 from model import get_model
 from transform import Normalize
 from utils import *
@@ -73,26 +73,21 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
 
     labels = {}
     dataset_index = []
-    files = os.listdir(root_dir)
+    files = sorted( os.listdir(root_dir) )
     for name in files:
         if not name.endswith(".obj") : continue
-        print( name )
         name_ = name.split("_")
-#        if name_[-1] != "box.json":
-      #  number = int(name_[0])
-         
         dataset_index.append(name)
         labels[name] = -1
 
-
+    results = {}
     pred_sex = {}
     error_dict = {}
 
-    n = 1
-    dataset = CTimageData(root_dir, dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+    dataset = MeshData(root_dir, dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-    sucess_path = os.path.join(output_path, "sex_change")
+    sucess_path = os.path.join(output_path, "sex_change" )
 
 
     if not os.path.exists(sucess_path):
@@ -110,8 +105,9 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
 
 
             for i in range(x_gt.shape[0]):
-
-                pred_sex.update({ f[i]:str(pred[i].cpu().numpy())})
+                predicted_sex = pred[i].cpu().numpy()
+                results[ f[ i ].split( "/" ).pop() ] = { "sex" : int( str( predicted_sex ) ) }
+                pred_sex.update({ f[i]:str(predicted_sex)})
 
             sex_hot = F.one_hot(pred, num_classes = 2).to(device)
             loss, correct, out, z, y_hat = net(x, x_gt, sex_hot, m_type = "test")
@@ -144,8 +140,10 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
 		   
 			
             diff = euclidean_distances(recon_mesh, gt_mesh).mean(-1)
+            maxDiff = euclidean_distances(recon_mesh, gt_mesh).max(-1)
 
             for i in range(diff.shape[0]):
+                results[ f[ i ].split( "/" ).pop() ][ "reconstruction_error" ] = { "mean" : float( str ( diff[ i ] ) ), "max" : float( str ( maxDiff[ i ] ) ) }
                 error_dict.update({f[i]:format(diff[i], '.4f')})
 
 
@@ -165,11 +163,14 @@ def inference(root_dir, net, output_path, mean, std, config, template, batch_siz
 
 
     import json
-    with open(os.path.join(output_path, 'pred_{}.json'.format(n)), 'w') as fp:
+    with open(os.path.join(output_path, 'pred.json'), 'w') as fp:
         json.dump(pred_sex, fp)
 
-    with open(os.path.join(output_path, 'error_list_{}.json'.format(n)), 'w') as fp:
+    with open(os.path.join(output_path, 'error_list.json'), 'w') as fp:
         json.dump(error_dict, fp)
+
+    with open(os.path.join(output_path, 'inference.json'), 'w') as fp:
+        json.dump(results, fp)
 
 def main(args):
 
@@ -195,15 +196,10 @@ def main(args):
     root_dir = args.data_dir
     output_path = args.output_path
 
-    nb_patients = config['nb_patient']
 
-    label_file = config['label_file']
     error_file = config['error_file']
     log_path = config['log_file']
-    random_seeds = config['random_seeds']
 
-    test_size = config['test_size']
-    eval_flag = config['eval']
     lr = config['learning_rate']
     lr_decay = config['learning_rate_decay']
     weight_decay = config['weight_decay']
@@ -225,10 +221,7 @@ def main(args):
 
     #criterion = BCEFocalLoss()
 
-    checkpoint_file = config['checkpoint_file']
-
-    n = args.model
-    checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
+    checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(args.model)+'.pt')
     checkpoint = torch.load(checkpoint_file)
     net.load_state_dict(checkpoint['state_dict'])
     norm_dict = np.load(os.path.join(checkpoint_dir, 'norm.npz'), allow_pickle = True)
@@ -241,14 +234,10 @@ def main(args):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Pytorch Trainer')
-    parser.add_argument('-u', '--conf', help='path of config file')
+    parser.add_argument('-c', '--conf', help='path of config file')
     parser.add_argument('-o', '--output_path',type = str, default= " ")
     parser.add_argument('-d', '--data_dir',type = str, default= " ")
     parser.add_argument('-n', '--model',type = int, default= 1)
-
-
-
-
     args = parser.parse_args()
 
     if args.conf is None:
