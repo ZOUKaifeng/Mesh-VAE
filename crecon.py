@@ -205,7 +205,7 @@ def estimate_diff(net, x, y,dtype):
         diff_1 = ori - recon_oppo
         diff_2 = ori - recon
 
-        diff = diff_1 + diff_2
+        diff = torch.cat((diff_1, diff_2), dim=-1)#diff_1 + diff_2
 
 
     return diff, correct
@@ -259,7 +259,7 @@ def main(args):
     print('loading template...', config['template'])
 
 
-    config_dvae = read_config("./files/default.cfg")
+    config_dvae = read_config(args.conf)
     dvae = get_model(config_dvae, device, save_init = False)
     print("loading checkpoint for DVAE from ", checkpoint_file)
   

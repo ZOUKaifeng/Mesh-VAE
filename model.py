@@ -62,7 +62,7 @@ def get_model(config, device, model_type  = None, save_init = True):
     elif model_type == 'cheb_GCN':
         
         print('Using model: cheb_GCN')
-        net = cheb_GCN(num_feature, config, D_t, U_t, A_t, num_nodes).to(device)
+        net = cheb_GCN(num_feature*2, config, D_t, U_t, A_t, num_nodes).to(device)
         for name,parameters in net.named_parameters():
             print(name,':',parameters.size())
         if save_init:
