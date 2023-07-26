@@ -22,7 +22,7 @@ from torch_geometric.data import Dataset, DataLoader
 import pandas as pd
 import mesh_operations
 from config_parser import read_config
-from data import CTimageData
+from data import MeshData
 from model import get_model
 from transform import Normalize
 from utils import *
@@ -219,31 +219,21 @@ def main(args):
     config = read_config(args.conf)
 
     print('Initializing parameters')
-    # template_mesh = pc2mesh(template)
-
- 
 
     checkpoint_dir = config['checkpoint_dir']
-
     if not os.path.exists(checkpoint_dir):
         os.makedirs(checkpoint_dir)
 
-
-
- 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if args.cpu : device = 'cpu'
     print("Using device:",device)
 
-
     root_dir = config['root_dir']
-    nb_patients = config['nb_patient']
-
-    label_file = config['label_file']
     error_file = config['error_file']
     log_path = config['log_file']
     random_seeds = config['random_seeds']
-
+    n_splits = config['folds']
     test_size = config['test_size']
-    eval_flag = config['eval']
     lr = config['learning_rate']
     lr_decay = config['learning_rate_decay']
     weight_decay = config['weight_decay']
@@ -253,7 +243,6 @@ def main(args):
     batch_size = config['batch_size']
     template_file_path = config['template']
     val_losses, accs, durations = [], [], []
-    checkpoint_file = config['checkpoint_file']
 
     net = get_model(config, device)
     print('loading template...', config['template'])
@@ -344,10 +333,10 @@ def main(args):
             optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
             n+=1
-            train_dataset = CTimageData(root_dir, train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
+            train_dataset = MeshData(root_dir, train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
             train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-            valid_dataset = CTimageData( root_dir, valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+            valid_dataset = MeshData( root_dir, valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
             valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 
 
@@ -396,6 +385,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--conf', help='path of config file')
     parser.add_argument('-t', '--train',action='store_true')
     parser.add_argument('-s', '--test',action='store_true')
+    parser.add_argument('--cpu',action='store_true', help = "force cpu")
     args = parser.parse_args()
 
     if args.conf is None:
