@@ -330,7 +330,7 @@ class cheb_VAE(torch.nn.Module):
 
 
             #rec_loss = logpdf.bernoulli(recon_x, x)
-        rec_loss = logpdf.gaussian_nll(recon_x, log_sigma, x).sum(-1).sum(-1) # test wether recon_x contains nan?
+        rec_loss = logpdf.gaussian_nll(recon_x, log_sigma, x).sum(-1).sum(-1) # test wether recon_x contains nan? maybe change sum(-1).sum(-1) to mean() ?
    
         index_pred = torch.argmax(y_hat,  dim = 1)
         index = torch.argmax(y,  dim = 1)
@@ -338,7 +338,7 @@ class cheb_VAE(torch.nn.Module):
         correct = torch.sum(index_pred == index)
 
 
-        logqy = (y_hat*y).sum(-1).log()
+        logqy = (y_hat*y).sum(-1).log() # classification accuracy
         loss = (kld + rec_loss - 2*logqy).mean()
 
        # loss =  - logqy.mean()
