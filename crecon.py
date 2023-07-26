@@ -367,7 +367,7 @@ def main(args):
 
             if args.test:
 
-                test_dataset = CTimageData( root_dir, test_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())  
+                test_dataset = MeshData( root_dir, test_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())  
                 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
                 test_loss, test_acc, _ = evaluate(net, dvae, test_loader, len(test_loader), device, criterion, err_file = False)
 
