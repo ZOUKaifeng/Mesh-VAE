@@ -10,7 +10,7 @@ from torch_geometric.data import DataLoader
 import pandas as pd
 import mesh_operations
 from config_parser import read_config
-from data import MeshData
+from data import MeshData, listMeshes
 from model import get_model
 from transform import Normalize
 from utils import *
@@ -71,15 +71,7 @@ def scipy_to_torch_sparse(scp_matrix):
 
 def inference(root_dir, net, output_path, mean, std, config, template, batch_size, faces):
 
-    labels = {}
-    dataset_index = []
-    files = sorted( os.listdir(root_dir) )
-    for name in files:
-        if not name.endswith(".obj") : continue
-        name_ = name.split("_")
-        dataset_index.append(name)
-        labels[name] = -1
-
+    dataset_index, labels = listMeshes( config, False )
     results = {}
     pred_sex = {}
     error_dict = {}

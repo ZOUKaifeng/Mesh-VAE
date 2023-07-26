@@ -28,8 +28,41 @@ def OnUnitCube(data):
 
     return data, s, m
 
-def listMeshes( dir, config ) :
-	return False
+def listMeshes( config, getSexFromFileName = True ) :
+    labels = {}
+    dataset_index = []
+    files = sorted( os.listdir( config[ "root_dir" ] ) )
+
+    toRemove = {}
+    error_file = config[ "error_file" ]
+    if len( error_file ) > 0:
+        with open( error_file ) as f:
+            lines = f.read().split( "\n" )
+            for line in lines:
+                toRemove[ line.split( " " )[ 0 ] ] = True
+
+    numberOfMeshes = 0
+    numberOfRejectedMeshes = 0
+
+    for name in files:
+        if not name.endswith( ".obj" ) : continue
+        numberOfMeshes += 1
+        if name.split( "/" ).pop() in toRemove:
+            numberOfRejectedMeshes += 1
+            continue
+        dataset_index.append( name )
+
+        if getSexFromFileName:
+            name_ = name.split( "_" )
+            if name_[ 1 ] == "f":
+                labels[ name ] = 0
+            else:
+                labels[ name ] = 1
+        else: labels[ name ] = -1
+
+    s = "Dataset : {} meshes, {} rejected meshes, {} remaining meshes"
+    print( s.format( numberOfMeshes, numberOfRejectedMeshes, len( dataset_index ) ) )
+    return dataset_index, labels
 
 
 class MeshData(Dataset):
@@ -70,17 +103,7 @@ class MeshData(Dataset):
 
 
     def preprocess(self):
-        error = []
-        if self.error_file != "":
-            with open(self.error_file, "r") as file :
-                for ind in file:
-                    if ind != '\n':
-                        error.append(int(ind))
-
-        if len(error) > 0 : print("number of error file", len(error))
-
         filename = []
-
         data = []  #Create an empty list
         data_label = []
         train_vertices = []
@@ -97,7 +120,7 @@ class MeshData(Dataset):
   
         for i in self.dataset_index:
             file = os.path.join(self.root_dir, i )
-            if i not in error and os.path.exists(file):   #i not in error and 
+            if os.path.exists(file):   #i not in error and 
                # print(file)
                 
                 filename.append(file)
