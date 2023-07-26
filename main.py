@@ -316,10 +316,11 @@ def main(args):
     print('optimizer type', opt, file = my_log)
     print('learning rate:', lr, file = my_log)
 
-	
+
     torch.manual_seed(random_seeds)
     np.random.seed(random_seeds)
     random.seed(random_seeds)
+    torch.cuda.manual_seed_all(random_seeds)
 
     start_epoch = 1
     print(checkpoint_file)
