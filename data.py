@@ -28,6 +28,8 @@ def OnUnitCube(data):
 
     return data, s, m
 
+def listMeshes( dir, config ) :
+	return False
 
 
 class MeshData(Dataset):

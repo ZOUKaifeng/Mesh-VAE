@@ -16,6 +16,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
+import torch_geometric
 from torch_geometric.data import Dataset, DataLoader
 import pandas as pd
 import mesh_operations
@@ -295,7 +296,7 @@ def main(args):
     opt = config['optimizer']
     batch_size = config['batch_size']
     template_file_path = config['template']
-    val_losses, accs, durations = [], [], []
+    torch_geometric.seed_everything(random_seeds)
 
 
     net = get_model(config, device)
@@ -315,12 +316,6 @@ def main(args):
     print('model type:', config['type'], file = my_log)
     print('optimizer type', opt, file = my_log)
     print('learning rate:', lr, file = my_log)
-
-
-    torch.manual_seed(random_seeds)
-    np.random.seed(random_seeds)
-    random.seed(random_seeds)
-    torch.cuda.manual_seed_all(random_seeds)
 
     start_epoch = 1
     print(checkpoint_file)
