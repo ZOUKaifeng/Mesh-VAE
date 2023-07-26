@@ -22,7 +22,7 @@ from torch_geometric.data import Dataset, DataLoader
 import pandas as pd
 import mesh_operations
 from config_parser import read_config
-from data import CTimageData
+from data import MeshData
 from model import get_model
 from transform import Normalize
 from utils import *
@@ -235,15 +235,12 @@ def main(args):
 
 
     root_dir = config['root_dir']
-    nb_patients = config['nb_patient']
 
-    label_file = config['label_file']
     error_file = config['error_file']
     log_path = config['log_file']
     random_seeds = config['random_seeds']
 
     test_size = config['test_size']
-    eval_flag = config['eval']
     lr = config['learning_rate']
     lr_decay = config['learning_rate_decay']
     weight_decay = config['weight_decay']
@@ -260,7 +257,7 @@ def main(args):
 
 
     config_dvae = read_config(args.conf)
-    dvae = get_model(config_dvae, device, save_init = False)
+    dvae = get_model(config_dvae, device, model_type="cheb_VAE", save_init = False)
     print("loading checkpoint for DVAE from ", checkpoint_file)
   
     checkpoint = torch.load(checkpoint_file)
@@ -344,10 +341,10 @@ def main(args):
             optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
             n+=1
-            train_dataset = CTimageData(root_dir, train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
+            train_dataset = MeshData(root_dir, train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
             train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-            valid_dataset = CTimageData( root_dir, valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+            valid_dataset = MeshData( root_dir, valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
             valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 
 
@@ -378,7 +375,7 @@ def main(args):
 
             if args.test:
 
-                test_dataset = CTimageData( root_dir, test_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())  
+                test_dataset = MeshData( root_dir, test_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())  
                 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
                 test_loss, test_acc, _ = evaluate(net, dvae, test_loader, len(test_loader), device, criterion, err_file = False)
 
