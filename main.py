@@ -334,10 +334,10 @@ def main(args):
         n+=1
 
         if args.train:
-            train_dataset = MeshData(root_dir, train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
+            train_dataset = MeshData(train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
             train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-            valid_dataset = MeshData(root_dir, valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+            valid_dataset = MeshData(valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
             valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
             best_loss = 10000000
 
@@ -389,7 +389,7 @@ def main(args):
                 json.dump(history, fp)
 
         if args.test:
-            test_dataset = MeshData(root_dir, np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+            test_dataset = MeshData(np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())
             test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
             checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
             checkpoint = torch.load(checkpoint_file)

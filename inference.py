@@ -59,14 +59,14 @@ def scipy_to_torch_sparse(scp_matrix):
     shape = scp_matrix.shape
 
 
-def inference(root_dir, net, output_path, mean, std, config, template, batch_size, faces):
+def inference(net, output_path, mean, std, config, template, batch_size, faces):
 
     dataset_index, labels = listMeshes( config, False )
     results = {}
     pred_sex = {}
     error_dict = {}
 
-    dataset = MeshData(root_dir, dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+    dataset = MeshData(dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
     sucess_path = os.path.join(output_path, "sex_change" )
@@ -175,7 +175,7 @@ def main(args):
 
 
 
-    root_dir = args.data_dir
+    config[ 'root_dir' ] = args.data_dir
     output_path = args.output_path
 
 
@@ -210,7 +210,7 @@ def main(args):
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
     with torch.no_grad():
-        inference(root_dir, net, output_path, mean, std, config, template, batch_size, faces)
+        inference(net, output_path, mean, std, config, template, batch_size, faces)
 
 
 if __name__ == '__main__':
