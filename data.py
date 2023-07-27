@@ -16,6 +16,15 @@ import open3d as o3d
 from sklearn.model_selection import train_test_split
 from utils import procrustes
 import copy
+
+def save_obj(filename, vertices, faces):
+    with open(filename, 'w') as fp:
+        for v in vertices:
+            fp.write('v %f %f %f\n' % (v[0], v[1], v[2]))
+
+        for f in faces + 1:
+            fp.write('f %d %d %d\n' % (f[0], f[1], f[2]))
+
 def OnUnitCube(data):
     max_, _ = torch.max(data.x, dim = 0)  # [N, D]  =>  [1, D]
     min_, _ = torch.min(data.x, dim = 0) 

@@ -21,7 +21,7 @@ from torch_geometric.data import Dataset, DataLoader
 import pandas as pd
 import mesh_operations
 from config_parser import read_config
-from data import MeshData, listMeshes
+from data import MeshData, listMeshes, save_obj
 from model import get_model
 from transform import Normalize
 from utils import *
@@ -32,17 +32,6 @@ import random
 import json
 import time
  
-
-def save_obj(filename, vertices, faces):
-    with open(filename, 'w') as fp:
-        for v in vertices:
-            fp.write('v %f %f %f\n' % (v[0], v[1], v[2]))
-
-        for f in faces + 1:
-            fp.write('f %d %d %d\n' % (f[0], f[1], f[2]))
-
-
-
 def adjust_learning_rate(optimizer, lr_decay):
 
     for param_group in optimizer.param_groups:
