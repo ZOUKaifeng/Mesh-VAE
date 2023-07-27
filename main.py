@@ -332,87 +332,85 @@ def main(args):
 
     dataset_index, labels = listMeshes( config )
 
-    for i in range(1):
+    skf = RepeatedStratifiedKFold(n_splits=n_splits, n_repeats=1, random_state = random_seeds)
 
-        skf = RepeatedStratifiedKFold(n_splits=n_splits, n_repeats=1, random_state = random_seeds)
+    n = 0
+    y = np.ones(len(dataset_index))
 
-        n = 0
-        y = np.ones(len(dataset_index))
+    for train_index, test_index in skf.split(dataset_index, y):
+        train_, valid_index = train_test_split(np.array(dataset_index)[train_index], test_size=test_size, random_state = random_seeds)
+        history = []
+        net.load_state_dict(torch.load(os.path.join(checkpoint_dir, 'initial_weight.pt')))
+        optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
+        n+=1
 
-        for train_index, test_index in skf.split(dataset_index, y):
-            train_, valid_index = train_test_split(np.array(dataset_index)[train_index], test_size=test_size, random_state = random_seeds)
-            history = []
-            net.load_state_dict(torch.load(os.path.join(checkpoint_dir, 'initial_weight.pt')))
-            optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
-            n+=1
+        if args.train:
+            train_dataset = MeshData(root_dir, train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-            if args.train:
-                train_dataset = MeshData(root_dir, train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
-                train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+            valid_dataset = MeshData(root_dir, valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+            valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+            best_loss = 10000000
 
-                valid_dataset = MeshData(root_dir, valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
-                valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-                best_loss = 10000000
+            for epoch in range(start_epoch, total_epochs + 1):
 
-                for epoch in range(start_epoch, total_epochs + 1):
+                begin = time.time()
 
-                    begin = time.time()
+                if epoch > 500:
+                    for p in optimizer.param_groups:
+                        p['lr'] = 0.0001
+                elif epoch > 1000:
+                    for p in optimizer.param_groups:
+                        p['lr'] = 0.00005
+                train_loss, train_kld, train_rec_loss, train_error, train_acc = train(net, train_loader, len(train_loader), optimizer, device, num_points,checkpoint_dir = checkpoint_dir)
 
-                    if epoch > 500:
-                        for p in optimizer.param_groups:
-                            p['lr'] = 0.0001
-                    elif epoch > 1000:
-                        for p in optimizer.param_groups:
-                            p['lr'] = 0.00005
-                    train_loss, train_kld, train_rec_loss, train_error, train_acc = train(net, train_loader, len(train_loader), optimizer, device, num_points,checkpoint_dir = checkpoint_dir)
+                valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(n, net, valid_loader, len(valid_loader),device, num_points,checkpoint_dir = checkpoint_dir)
 
-                    valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(n, net, valid_loader, len(valid_loader),device, num_points,checkpoint_dir = checkpoint_dir)
+                duration = time.time() - begin
 
-                    duration = time.time() - begin
+                if valid_loss <= best_loss:
+                    save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir)
+                    best_loss = valid_loss
 
-                    if valid_loss <= best_loss:
-                        save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir)
-                        best_loss = valid_loss
+                history.append( {
+                    "epoch" : epoch,
+                    "begin" : begin,
+                    "duration" : duration,
+                    "training" : {
+                        "loss" : train_loss,
+                        "kld" : train_kld,
+                        "reconstruction_loss" : train_rec_loss,
+                        "accuracy" : train_acc.item(),
+                        "error" : np.mean(train_error)
+                    },
+                    "validation" : {
+                        "loss" : valid_loss,
+                        "kld" : valid_kld,
+                        "reconstruction_loss" : valid_rec_loss,
+                        "accuracy" : float( str( acc ) ),
+                        "error" : np.mean(error)
+                    }
+                } )
 
-                    history.append( {
-                        "epoch" : epoch,
-                        "begin" : begin,
-                        "duration" : duration,
-                        "training" : {
-                            "loss" : train_loss,
-                            "kld" : train_kld,
-                            "reconstruction_loss" : train_rec_loss,
-                            "accuracy" : train_acc.item(),
-                            "error" : np.mean(train_error)
-                        },
-                        "validation" : {
-                            "loss" : valid_loss,
-                            "kld" : valid_kld,
-                            "reconstruction_loss" : valid_rec_loss,
-                            "accuracy" : float( str( acc ) ),
-                            "error" : np.mean(error)
-                        }
-                    } )
+                if epoch%10 == 0:
+                    toPrint = 'Epoch {}, train loss {}(kld {}, recon loss {}, train acc {}) || valid loss {}(error {}, rec_loss {}, valid acc {}, sex change acc {})'
+                    print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc))
+                    print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc), file = my_log)
 
-                    if epoch%10 == 0:
-                        toPrint = 'Epoch {}, train loss {}(kld {}, recon loss {}, train acc {}) || valid loss {}(error {}, rec_loss {}, valid acc {}, sex change acc {})'
-                        print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc))
-                        print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc), file = my_log)
+            with open(os.path.join(checkpoint_dir, 'history' + str( n ) + '.json'), 'w') as fp:
+                json.dump(history, fp)
 
-                with open(os.path.join(checkpoint_dir, 'history' + str( n ) + '.json'), 'w') as fp:
-                    json.dump(history, fp)
+        if args.test:
+            test_dataset = MeshData(root_dir, np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+            checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
+            checkpoint = torch.load(checkpoint_file)
+            net.load_state_dict(checkpoint['state_dict'])
 
-            if args.test:
-                test_dataset = MeshData(root_dir, np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())
-                test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
-                checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
-                checkpoint = torch.load(checkpoint_file)
-                net.load_state_dict(checkpoint['state_dict'])
-
-                test_loss, test_kld, test_rec_loss, cls_acc, test_error, acc = evaluate(n, net, test_loader, len(test_loader),device, num_points, faces = faces, checkpoint_dir = checkpoint_dir, vis = args.vis)
-                print(test_error.shape)
-                print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc)
-                print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc, file = my_log)
+            test_loss, test_kld, test_rec_loss, cls_acc, test_error, acc = evaluate(n, net, test_loader, len(test_loader),device, num_points, faces = faces, checkpoint_dir = checkpoint_dir, vis = args.vis)
+            print(test_error.shape)
+            print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc)
+            print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc, file = my_log)
 
 
 if __name__ == '__main__':
