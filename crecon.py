@@ -242,7 +242,7 @@ def main(args):
     val_losses, accs, durations = [], [], []
     checkpoint_file = config['checkpoint_file']
 
-    net = get_model(config, device)
+    net = get_model(config, device, model_type="cheb_GCN")
     print('loading template...', config['template'])
 
 
@@ -353,8 +353,10 @@ def main(args):
 
 
             if args.test:
-
-                test_dataset = MeshData(test_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())  
+                checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
+                checkpoint = torch.load(checkpoint_file)
+                net.load_state_dict(checkpoint['state_dict'])
+                test_dataset = MeshData(np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())  
                 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
                 test_loss, test_acc, _ = evaluate(net, dvae, test_loader, len(test_loader), device, criterion, err_file = False)
 
