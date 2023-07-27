@@ -36,6 +36,8 @@ def set_default_parameters(config):
     config.set('Learning Parameters', 'optimizer', 'adam')
     config.set('Learning Parameters', 'batch_size', 16)
     config.set('Learning Parameters', 'learning_rate', 1e-3)
+    config.set('Learning Parameters', 'learning_rates', "0.001, 0.0001")
+    config.set('Learning Parameters', 'learning_rates_epochs', "500, 10000")
     config.set('Learning Parameters', 'learning_rate_decay', 0.99)
     config.set('Learning Parameters', 'weight_decay', 5e-4)
     config.set('Learning Parameters', 'epoch', 300)
@@ -77,6 +79,8 @@ def read_config(fname):
     config_parms['optimizer'] = config.get('Learning Parameters', 'optimizer')
     config_parms['batch_size'] = config.getint('Learning Parameters', 'batch_size')
     config_parms['learning_rate'] = config.getfloat('Learning Parameters', 'learning_rate')
+    config_parms['learning_rates'] = [float(x) for x in config.get('Learning Parameters', 'learning_rates').split(',')]
+    config_parms['learning_rates_epochs'] = [float(x) for x in config.get('Learning Parameters', 'learning_rates_epochs').split(',')]
     config_parms['learning_rate_decay'] = config.getfloat('Learning Parameters', 'learning_rate_decay')
     config_parms['weight_decay'] = config.getfloat('Learning Parameters', 'weight_decay')
     config_parms['epoch'] = config.getint('Learning Parameters', 'epoch')

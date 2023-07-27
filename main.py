@@ -356,12 +356,11 @@ def main(args):
 
                 begin = time.time()
 
-                if epoch > 500:
-                    for p in optimizer.param_groups:
-                        p['lr'] = 0.0001
-                elif epoch > 1000:
-                    for p in optimizer.param_groups:
-                        p['lr'] = 0.00005
+                for e_index, e in enumerate( config['learning_rates_epochs'] ):
+                    if epoch > e:
+                        for p in optimizer.param_groups:
+                            p['lr'] = config['learning_rates'][ e_index ]
+
                 train_loss, train_kld, train_rec_loss, train_error, train_acc = train(net, train_loader, len(train_loader), optimizer, device, num_points,checkpoint_dir = checkpoint_dir)
 
                 valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(n, net, valid_loader, len(valid_loader),device, num_points,checkpoint_dir = checkpoint_dir)
