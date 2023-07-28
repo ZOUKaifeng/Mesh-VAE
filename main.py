@@ -72,10 +72,7 @@ def train(model, train_loader, len_dataset, optimizer, device,num_points, checkp
     error_ = 0
     sigma = 0
 
-    
-    # lamda = 0.01
 
-    max_error = 0
     total = 0
     total_correct = 0
     for data in train_loader:
@@ -111,16 +108,7 @@ def train(model, train_loader, len_dataset, optimizer, device,num_points, checkp
        
         gt_mesh = gt_mesh.detach().numpy()
         diff = euclidean_distances(recon_mesh, gt_mesh).mean()
-        error_ += diff
-
-        if np.max(diff) > max_error:
-            max_error = np.max(diff)
-            idx = np.where(diff==max_error)
-
-
-            max_error_dict = {filename[idx[0][0]]:max_error}
-    
-
+        error_ += diff 
 
     return total_loss / len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, error_/len_dataset, total_correct/total
 
@@ -139,13 +127,11 @@ def evaluate(n, model, test_loader, len_dataset, device,num_points, faces = None
     error_ = np.empty((0, num_points))
     z_male = []
     z_female = []
-    max_error = 0
 
     total = 0
     total_correct = 0
 
     acc = 0
-    lamda = 0.01
 
 
     if vis:
@@ -214,31 +200,24 @@ def evaluate(n, model, test_loader, len_dataset, device,num_points, faces = None
 
             oppo_mesh = oppo_mesh.detach().cpu().numpy()
 
-            if vis:
+            if not vis: continue
        
-                for i in range(batch_size):
-                    file = f[i].split('/')[-1]
-                    file = file.split('.')[0]
-                   # number = int(file[4:])
+            for i in range(batch_size):
+                file = f[i].split('/')[-1]
+                file = file.split('.')[0]
+               # number = int(file[4:])
 
-                    if index_pred[i] == index_gt[i]:
-                
-                        recon_path = os.path.join(sucess_path, file+'_recon'+'.obj')
-                        save_obj(recon_path, recon_mesh[i], faces)
-                        gt_path = os.path.join(sucess_path, file+'_gt'+'.obj')
-                        save_obj(gt_path, gt_mesh[i], faces)
+                if index_pred[ i ] == index_gt[ i ] : o_path = sucess_path
+                else : o_path = failed_path
 
-                        oppo_path = os.path.join(sucess_path, file+'.obj')
-                        save_obj(oppo_path, oppo_mesh[i], faces)
-                    else:
-                    
-                        recon_path = os.path.join(failed_path, file+'_recon'+'.obj')
-                        save_obj(recon_path, recon_mesh[i], faces)
-                        gt_path = os.path.join(failed_path, file+'_gt'+'.obj')
-                        save_obj(gt_path, gt_mesh[i], faces)
+                recon_path = os.path.join(o_path, file+'_recon'+'.obj')
+                save_obj(recon_path, recon_mesh[i], faces)
 
-                        oppo_path = os.path.join(failed_path, file+'.obj')
-                        save_obj(oppo_path, oppo_mesh[i], faces)
+                gt_path = os.path.join(o_path, file+'_gt'+'.obj')
+                save_obj(gt_path, gt_mesh[i], faces)
+
+                oppo_path = os.path.join(o_path, file+'.obj')
+                save_obj(oppo_path, oppo_mesh[i], faces)
                 
     return total_loss/len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, total_correct/total, error_, acc/len_dataset, 
 
@@ -248,9 +227,6 @@ def scipy_to_torch_sparse(scp_matrix):
     i = torch.LongTensor(indices)
     v = torch.FloatTensor(values)
     shape = scp_matrix.shape
-
-
-
 
 
 def main(args):
