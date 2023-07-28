@@ -70,11 +70,9 @@ def train(model, train_loader, len_dataset, optimizer, device, checkpoint_dir = 
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
     error_ = 0
-    sigma = 0
-
-
     total = 0
     total_correct = 0
+
     for data in train_loader:
         l1_reg = torch.tensor(0.0).to(device)
 
@@ -116,25 +114,17 @@ def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None,
     model.eval()
     total_loss = 0
     total_rec_loss = 0
-    count = 0
     total_kld = 0
     error = 0
-    sigma = 0
 
     norm_dict = np.load(os.path.join(checkpoint_dir, 'norm.npz'), allow_pickle = True)
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
     first = True
     error_ = 0
-
-    z_male = []
-    z_female = []
-
     total = 0
     total_correct = 0
-
     acc = 0
-    len_dataset = len( test_loader )
 
     if vis:
 
