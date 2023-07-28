@@ -108,9 +108,9 @@ def train(model, train_loader, len_dataset, optimizer, device, checkpoint_dir = 
        
         gt_mesh = gt_mesh.detach().numpy()
         diff = euclidean_distances(recon_mesh, gt_mesh).mean()
-        error_ += diff 
+        error_ += diff * batch_size
 
-    return total_loss / len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, error_/len_dataset, total_correct/total
+    return total_loss / len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, error_/total, total_correct/total
 
 def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None, vis = False):
     model.eval()
@@ -124,8 +124,7 @@ def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None,
     norm_dict = np.load(os.path.join(checkpoint_dir, 'norm.npz'), allow_pickle = True)
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
-    error_ = None
-    first = True
+    error_ = 0
 
     z_male = []
     z_female = []
@@ -161,11 +160,11 @@ def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None,
             rec_loss = z[1].mean()
             #loss = kld + rec_loss 
 
-            total_loss +=  loss.cpu().numpy()
-            total_rec_loss += rec_loss.cpu().numpy()
-            total_kld += kld.cpu().numpy()
-
             batch_size = x.num_graphs
+            total_loss +=  loss.cpu().numpy() * batch_size
+            total_rec_loss += rec_loss.cpu().numpy() * batch_size
+            total_kld += kld.cpu().numpy() * batch_size
+
             recon_mesh = out.cpu() * std + mean
 
             s = s.unsqueeze(1)
@@ -182,10 +181,8 @@ def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None,
             total += batch_size
             total_correct += correct.cpu().numpy()
 
-            diff = euclidean_distances(recon_mesh, gt_mesh)
-            if first : error_ = diff
-            else : error_ = np.concatenate((error_, diff), axis = 0)
-            first = False
+            diff = euclidean_distances(recon_mesh, gt_mesh).mean()
+            error_ += diff * batch_size
             oppo = 1 - sex_hot
             index_gt = torch.argmax(oppo,  dim = 1)
 
@@ -195,7 +192,7 @@ def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None,
 
             index_pred = classifier_(model, oppo_x)
 
-            acc += ((index_pred.squeeze() == index_gt.squeeze()).sum().item()/batch_size)
+            acc += (index_pred.squeeze() == index_gt.squeeze()).sum().item()
 
             oppo_mesh =  oppo_x.cpu() * std + mean
 
@@ -222,7 +219,7 @@ def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None,
                 oppo_path = os.path.join(o_path, file+'.obj')
                 save_obj(oppo_path, oppo_mesh[i], faces)
                 
-    return total_loss/len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, total_correct/total, error_, acc/len_dataset, 
+    return total_loss/total, total_kld/total, total_rec_loss/total, total_correct/total, error_/total, acc/total, 
 
 def scipy_to_torch_sparse(scp_matrix):
     values = scp_matrix.data
@@ -343,21 +340,22 @@ def main(args):
                         "kld" : train_kld,
                         "reconstruction_loss" : train_rec_loss,
                         "accuracy" : train_acc.item(),
-                        "error" : np.mean(train_error).item()
+                        "error" : train_error
                     },
                     "validation" : {
                         "loss" : valid_loss,
                         "kld" : valid_kld,
                         "reconstruction_loss" : valid_rec_loss,
                         "accuracy" : valid_acc.item(),
-                        "error" : np.mean(error).item()
+                        "error" : error
                     }
                 } )
 
                 if epoch%10 == 0:
                     toPrint = 'Epoch {}, train loss {}(kld {}, recon loss {}, train acc {}) || valid loss {}(error {}, rec_loss {}, valid acc {}, sex change acc {})'
-                    print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc))
-                    print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc), file = my_log)
+                    form = toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, error, valid_rec_loss, valid_acc, acc)
+                    print( form )
+                    print( form, file = my_log)
 
             with open(os.path.join(checkpoint_dir, 'history' + str( n ) + '.json'), 'w') as fp:
                 json.dump(history, fp)
