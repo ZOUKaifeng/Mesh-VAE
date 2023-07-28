@@ -124,6 +124,7 @@ def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None,
     norm_dict = np.load(os.path.join(checkpoint_dir, 'norm.npz'), allow_pickle = True)
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
+    first = True
     error_ = 0
 
     z_male = []
@@ -181,8 +182,10 @@ def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None,
             total += batch_size
             total_correct += correct.cpu().numpy()
 
-            diff = euclidean_distances(recon_mesh, gt_mesh).mean()
-            error_ += diff * batch_size
+            diff = euclidean_distances(recon_mesh, gt_mesh)
+            if first : error_ = diff
+            else : error_ = np.concatenate( ( error_, diff ), axis = 0 )
+            first = False
             oppo = 1 - sex_hot
             index_gt = torch.argmax(oppo,  dim = 1)
 
@@ -219,7 +222,7 @@ def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None,
                 oppo_path = os.path.join(o_path, file+'.obj')
                 save_obj(oppo_path, oppo_mesh[i], faces)
                 
-    return total_loss/total, total_kld/total, total_rec_loss/total, total_correct/total, error_/total, acc/total, 
+    return total_loss/total, total_kld/total, total_rec_loss/total, total_correct/total, error_, acc/total
 
 def scipy_to_torch_sparse(scp_matrix):
     values = scp_matrix.data
@@ -324,6 +327,7 @@ def main(args):
                 train_loss, train_kld, train_rec_loss, train_error, train_acc = train(net, train_loader, len(train_loader), optimizer, device,checkpoint_dir = checkpoint_dir)
 
                 valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(n, net, valid_loader, device, checkpoint_dir = checkpoint_dir)
+                mean_val_error = error.mean().item()
 
                 duration = time.time() - begin
 
@@ -347,13 +351,13 @@ def main(args):
                         "kld" : valid_kld,
                         "reconstruction_loss" : valid_rec_loss,
                         "accuracy" : valid_acc.item(),
-                        "error" : error
+                        "error" : mean_val_error
                     }
                 } )
 
                 if epoch%10 == 0:
                     toPrint = 'Epoch {}, train loss {}(kld {}, recon loss {}, train acc {}) || valid loss {}(error {}, rec_loss {}, valid acc {}, sex change acc {})'
-                    form = toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, error, valid_rec_loss, valid_acc, acc)
+                    form = toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, mean_val_error, valid_rec_loss, valid_acc, acc)
                     print( form )
                     print( form, file = my_log)
 
