@@ -59,7 +59,7 @@ def classifier_(net, x):
 def euclidean_distances(gt, pred):
     return np.sqrt(((gt-pred)**2).sum(-1))
 
-def train(model, train_loader, len_dataset, optimizer, device,num_points, checkpoint_dir = None):
+def train(model, train_loader, len_dataset, optimizer, device, checkpoint_dir = None):
     model.train()
     total_loss = 0
     total_rec_loss = 0
@@ -112,7 +112,7 @@ def train(model, train_loader, len_dataset, optimizer, device,num_points, checkp
 
     return total_loss / len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, error_/len_dataset, total_correct/total
 
-def evaluate(n, model, test_loader, len_dataset, device,num_points, faces = None, checkpoint_dir = None, vis = False):
+def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None, vis = False):
     model.eval()
     total_loss = 0
     total_rec_loss = 0
@@ -124,7 +124,9 @@ def evaluate(n, model, test_loader, len_dataset, device,num_points, faces = None
     norm_dict = np.load(os.path.join(checkpoint_dir, 'norm.npz'), allow_pickle = True)
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
-    error_ = np.empty((0, num_points))
+    error_ = None
+    first = True
+
     z_male = []
     z_female = []
 
@@ -132,7 +134,7 @@ def evaluate(n, model, test_loader, len_dataset, device,num_points, faces = None
     total_correct = 0
 
     acc = 0
-
+    len_dataset = len( test_loader )
 
     if vis:
 
@@ -181,8 +183,9 @@ def evaluate(n, model, test_loader, len_dataset, device,num_points, faces = None
             total_correct += correct.cpu().numpy()
 
             diff = euclidean_distances(recon_mesh, gt_mesh)
-            #print(diff.shape)
-            error_ = np.concatenate((error_, diff), axis = 0)
+            if first : error_ = diff
+            else : error_ = np.concatenate((error_, diff), axis = 0)
+            first = False
             oppo = 1 - sex_hot
             index_gt = torch.argmax(oppo,  dim = 1)
 
@@ -268,10 +271,6 @@ def main(args):
     template_mesh = Mesh(filename=config['template'])
     template = np.array(template_mesh.v)
     faces = np.array(template_mesh.f)
-    num_points = template.shape[0]
-
-
-    #criterion = BCEFocalLoss()
 
     checkpoint_file = config['checkpoint_file']
 
@@ -325,9 +324,9 @@ def main(args):
                         for p in optimizer.param_groups:
                             p['lr'] = config['learning_rates'][ e_index ]
 
-                train_loss, train_kld, train_rec_loss, train_error, train_acc = train(net, train_loader, len(train_loader), optimizer, device, num_points,checkpoint_dir = checkpoint_dir)
+                train_loss, train_kld, train_rec_loss, train_error, train_acc = train(net, train_loader, len(train_loader), optimizer, device,checkpoint_dir = checkpoint_dir)
 
-                valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(n, net, valid_loader, len(valid_loader),device, num_points,checkpoint_dir = checkpoint_dir)
+                valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(n, net, valid_loader, device, checkpoint_dir = checkpoint_dir)
 
                 duration = time.time() - begin
 
@@ -344,14 +343,14 @@ def main(args):
                         "kld" : train_kld,
                         "reconstruction_loss" : train_rec_loss,
                         "accuracy" : train_acc.item(),
-                        "error" : np.mean(train_error)
+                        "error" : np.mean(train_error).item()
                     },
                     "validation" : {
                         "loss" : valid_loss,
                         "kld" : valid_kld,
                         "reconstruction_loss" : valid_rec_loss,
                         "accuracy" : valid_acc.item(),
-                        "error" : np.mean(error)
+                        "error" : np.mean(error).item()
                     }
                 } )
 
@@ -370,7 +369,7 @@ def main(args):
             checkpoint = torch.load(checkpoint_file)
             net.load_state_dict(checkpoint['state_dict'])
 
-            test_loss, test_kld, test_rec_loss, cls_acc, test_error, acc = evaluate(n, net, test_loader, len(test_loader),device, num_points, faces = faces, checkpoint_dir = checkpoint_dir, vis = args.vis)
+            test_loss, test_kld, test_rec_loss, cls_acc, test_error, acc = evaluate(n, net, test_loader,device, faces = faces, checkpoint_dir = checkpoint_dir, vis = args.vis)
             print(test_error.shape)
             print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc)
             print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc, file = my_log)
