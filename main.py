@@ -7,9 +7,6 @@ Created on Mon Oct 05 13:43:10 2020
 
 main function 
 """
-
-
-
 import argparse
 import os
 import torch
@@ -32,11 +29,6 @@ import random
 import json
 import time
  
-def adjust_learning_rate(optimizer, lr_decay):
-
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = param_group['lr'] * lr_decay
-
 def save_model(coma, optimizer, epoch, train_loss, val_loss, checkpoint_dir):
     checkpoint = {}
     checkpoint['state_dict'] = coma.state_dict()
@@ -59,27 +51,27 @@ def classifier_(net, x):
 def euclidean_distances(gt, pred):
     return np.sqrt(((gt-pred)**2).sum(-1))
 
-def train(model, train_loader, len_dataset, optimizer, device, checkpoint_dir = None):
+def train(model, train_loader, optimizer, device, checkpoint_dir):
     model.train()
-    total_loss = 0
-    total_rec_loss = 0
-
-    total_kld = 0
-
     norm_dict = np.load(os.path.join(checkpoint_dir, 'norm.npz'), allow_pickle = True)
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
-    error_ = 0
+
     total = 0
+    total_loss = 0
+    total_rec_loss = 0
+    total_kld = 0
+    total_error = 0
     total_correct = 0
 
     for data in train_loader:
-        l1_reg = torch.tensor(0.0).to(device)
 
         x,x_gt, y, filename, gt_mesh , R,m,s = data
-
         x, x_gt = x.to(device), x_gt.to(device)
         sex_hot = F.one_hot(y, num_classes = 2).to(device)
+        batch_size = x.num_graphs
+        total += batch_size
+
         optimizer.zero_grad()
         loss, correct, out, z, y_hat = model(x, x_gt, sex_hot, m_type = "train")
 
@@ -88,46 +80,37 @@ def train(model, train_loader, len_dataset, optimizer, device, checkpoint_dir = 
         loss.backward()
         optimizer.step()
 
-        batch_size = x.num_graphs
         total_loss += loss.cpu().detach().numpy() * batch_size
         total_kld += kld.cpu().detach().numpy() * batch_size 
         total_rec_loss += rec_loss.cpu().detach().numpy() * batch_size 
-
-
-
-        total += batch_size
         total_correct += correct
+
         recon_mesh = out.cpu() * std + mean
         s = s.unsqueeze(1)
-
-
         recon_mesh = torch.bmm(recon_mesh * s, R) + m  #procrust
         recon_mesh = recon_mesh.detach().cpu().numpy()
-       
         gt_mesh = gt_mesh.detach().numpy()
         diff = euclidean_distances(recon_mesh, gt_mesh).mean()
-        error_ += diff * batch_size
+        total_error += diff * batch_size
 
-    return total_loss / total, total_kld/total, total_rec_loss/total, error_/total, total_correct/total
+    return total_loss / total, total_kld/total, total_rec_loss/total, total_error/total, total_correct/total
 
 def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None, vis = False):
     model.eval()
-    total_loss = 0
-    total_rec_loss = 0
-    total_kld = 0
-    error = 0
-
     norm_dict = np.load(os.path.join(checkpoint_dir, 'norm.npz'), allow_pickle = True)
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
-    first = True
-    error_ = 0
+
     total = 0
+    total_loss = 0
+    total_rec_loss = 0
+    total_kld = 0
+    first = True
+    errors = 0
     total_correct = 0
     acc = 0
 
     if vis:
-
         save_path = os.path.join(checkpoint_dir, "mesh"+str(n))    
         if not os.path.exists(save_path):
             os.makedirs(save_path)
@@ -141,56 +124,38 @@ def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None,
     with torch.no_grad():
         for data in test_loader:
             x,x_gt, y, f, gt_mesh , R,m,s = data
-
             x, x_gt = x.to(device), x_gt.to(device)
             sex_hot = F.one_hot(y, num_classes = 2).to(device)
             loss, correct, out, z, y_hat = model(x, x_gt, sex_hot, m_type = "test")
-
+            batch_size = x.num_graphs
+            total += batch_size
 
             kld = z[0].mean()
             rec_loss = z[1].mean()
-            #loss = kld + rec_loss 
-
-            batch_size = x.num_graphs
             total_loss +=  loss.cpu().numpy() * batch_size
             total_rec_loss += rec_loss.cpu().numpy() * batch_size
             total_kld += kld.cpu().numpy() * batch_size
 
             recon_mesh = out.cpu() * std + mean
-
             s = s.unsqueeze(1)
-
             recon_mesh = torch.bmm(recon_mesh * s, R) + m
-
             recon_mesh = recon_mesh.detach().cpu().numpy()
-
-
-
             gt_mesh = gt_mesh.detach().cpu().numpy()
-
-
-            total += batch_size
             total_correct += correct.cpu().numpy()
-
             diff = euclidean_distances(recon_mesh, gt_mesh)
-            if first : error_ = diff
-            else : error_ = np.concatenate( ( error_, diff ), axis = 0 )
+            if first : errors = diff
+            else : errors = np.concatenate( ( errors, diff ), axis = 0 )
             first = False
             oppo = 1 - sex_hot
             index_gt = torch.argmax(oppo,  dim = 1)
-
             z = z[2]
-
             oppo_x =  model.sample(oppo, z)
-
             index_pred = classifier_(model, oppo_x)
 
             acc += (index_pred.squeeze() == index_gt.squeeze()).sum().item()
 
             oppo_mesh =  oppo_x.cpu() * std + mean
-
             oppo_mesh = torch.bmm(oppo_mesh * s, R) + m
-
             oppo_mesh = oppo_mesh.detach().cpu().numpy()
 
             if not vis: continue
@@ -198,7 +163,6 @@ def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None,
             for i in range(batch_size):
                 file = f[i].split('/')[-1]
                 file = file.split('.')[0]
-               # number = int(file[4:])
 
                 if index_pred[ i ] == index_gt[ i ] : o_path = sucess_path
                 else : o_path = failed_path
@@ -212,15 +176,7 @@ def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None,
                 oppo_path = os.path.join(o_path, file+'.obj')
                 save_obj(oppo_path, oppo_mesh[i], faces)
                 
-    return total_loss/total, total_kld/total, total_rec_loss/total, total_correct/total, error_, acc/total
-
-def scipy_to_torch_sparse(scp_matrix):
-    values = scp_matrix.data
-    indices = np.vstack((scp_matrix.row, scp_matrix.col))
-    i = torch.LongTensor(indices)
-    v = torch.FloatTensor(values)
-    shape = scp_matrix.shape
-
+    return total_loss/total, total_kld/total, total_rec_loss/total, total_correct/total, errors, acc/total
 
 def main(args):
 
@@ -314,7 +270,7 @@ def main(args):
                         for p in optimizer.param_groups:
                             p['lr'] = config['learning_rates'][ e_index ]
 
-                train_loss, train_kld, train_rec_loss, train_error, train_acc = train(net, train_loader, len(train_loader), optimizer, device,checkpoint_dir = checkpoint_dir)
+                train_loss, train_kld, train_rec_loss, train_error, train_acc = train(net, train_loader, optimizer, device,checkpoint_dir = checkpoint_dir)
 
                 valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(n, net, valid_loader, device, checkpoint_dir = checkpoint_dir)
                 mean_val_error = error.mean().item()
@@ -347,9 +303,9 @@ def main(args):
 
                 if epoch%10 == 0:
                     toPrint = 'Epoch {}, train loss {}(kld {}, recon loss {}, train acc {}) || valid loss {}(error {}, rec_loss {}, valid acc {}, sex change acc {})'
-                    form = toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, mean_val_error, valid_rec_loss, valid_acc, acc)
-                    print( form )
-                    print( form, file = my_log)
+                    toPrint = toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, mean_val_error, valid_rec_loss, valid_acc, acc)
+                    print( toPrint )
+                    print( toPrint, file = my_log)
 
             with open(os.path.join(checkpoint_dir, 'history' + str( n ) + '.json'), 'w') as fp:
                 json.dump(history, fp)
@@ -363,8 +319,10 @@ def main(args):
 
             test_loss, test_kld, test_rec_loss, cls_acc, test_error, acc = evaluate(n, net, test_loader,device, faces = faces, checkpoint_dir = checkpoint_dir, vis = args.vis)
             print(test_error.shape)
-            print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc)
-            print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc, file = my_log)
+            toPrint = 'round {} test loss {},  mean error: {}, train sigma {}, classification acc {}, sex change rate {}'
+            toPrint = toPrint.format( n, test_loss, np.mean(test_error), np.std(test_error), cls_acc, acc )
+            print( toPrint )
+            print( toPrint, file = my_log )
 
 
 if __name__ == '__main__':
