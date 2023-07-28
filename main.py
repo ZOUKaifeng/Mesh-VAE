@@ -90,12 +90,12 @@ def train(model, train_loader, len_dataset, optimizer, device, checkpoint_dir = 
         loss.backward()
         optimizer.step()
 
-        total_loss += loss.cpu().detach().numpy()
-        total_kld += kld.cpu().detach().numpy()
-        total_rec_loss += rec_loss.cpu().detach().numpy()
-
-
         batch_size = x.num_graphs
+        total_loss += loss.cpu().detach().numpy() * batch_size
+        total_kld += kld.cpu().detach().numpy() * batch_size 
+        total_rec_loss += rec_loss.cpu().detach().numpy() * batch_size 
+
+
 
         total += batch_size
         total_correct += correct
@@ -110,7 +110,7 @@ def train(model, train_loader, len_dataset, optimizer, device, checkpoint_dir = 
         diff = euclidean_distances(recon_mesh, gt_mesh).mean()
         error_ += diff * batch_size
 
-    return total_loss / len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, error_/total, total_correct/total
+    return total_loss / total, total_kld/total, total_rec_loss/total, error_/total, total_correct/total
 
 def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None, vis = False):
     model.eval()
