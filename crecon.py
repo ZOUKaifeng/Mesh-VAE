@@ -342,7 +342,6 @@ def main(args):
         
 
 
-
             if args.test:
                 if not args.train:
                     checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
