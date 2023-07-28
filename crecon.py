@@ -320,16 +320,15 @@ def main(args):
             optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
             n+=1
-            train_dataset = MeshData(train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
-            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-
-            valid_dataset = MeshData(valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
-            valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-
-
-            best_val_acc = 0
 
             if args.train:
+
+                best_val_acc = 0
+                train_dataset = MeshData(train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
+                train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+
+                valid_dataset = MeshData(valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+                valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 
                 for epoch in range(start_epoch, total_epochs + 1):
 
@@ -353,9 +352,10 @@ def main(args):
 
 
             if args.test:
-                checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
-                checkpoint = torch.load(checkpoint_file)
-                net.load_state_dict(checkpoint['state_dict'])
+                if not args.train:
+                    checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
+                    checkpoint = torch.load(checkpoint_file)
+                    net.load_state_dict(checkpoint['state_dict'])
                 test_dataset = MeshData(np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())  
                 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
                 test_loss, test_acc, _ = evaluate(net, dvae, test_loader, len(test_loader), device, criterion, err_file = False)
