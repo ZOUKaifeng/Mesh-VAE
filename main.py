@@ -240,7 +240,6 @@ def evaluate(n, model, test_loader, len_dataset, device,num_points, faces = None
                         oppo_path = os.path.join(failed_path, file+'.obj')
                         save_obj(oppo_path, oppo_mesh[i], faces)
                 
-             
     return total_loss/len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, total_correct/total, error_, acc/len_dataset, 
 
 def scipy_to_torch_sparse(scp_matrix):
@@ -375,7 +374,7 @@ def main(args):
                         "loss" : valid_loss,
                         "kld" : valid_kld,
                         "reconstruction_loss" : valid_rec_loss,
-                        "accuracy" : float( str( acc ) ),
+                        "accuracy" : valid_acc.item(),
                         "error" : np.mean(error)
                     }
                 } )
