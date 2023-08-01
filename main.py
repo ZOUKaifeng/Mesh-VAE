@@ -195,8 +195,6 @@ def main(args):
     if args.cpu : device = 'cpu'
     print("Using device:",device)
 
-    root_dir = config['root_dir']
-    error_file = config['error_file']
     log_path = config['log_file']
     random_seeds = config['random_seeds']
     n_splits = config['folds']
@@ -297,7 +295,8 @@ def main(args):
                         "kld" : valid_kld,
                         "reconstruction_loss" : valid_rec_loss,
                         "accuracy" : valid_acc.item(),
-                        "error" : mean_val_error
+                        "error" : mean_val_error,
+                        "sex_change_success_rate" : acc
                     }
                 } )
 
