@@ -309,7 +309,6 @@ def main(args):
   
 
             optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
-
             n+=1
 
             if args.train:
