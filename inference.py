@@ -7,7 +7,6 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import Dataset
-import torch_geometric
 from torch_geometric.data import DataLoader
 import pandas as pd
 import mesh_operations
@@ -67,6 +66,7 @@ def inference(net, output_path, mean, std, config, template, batch_size, faces):
     results = {}
     pred_sex = {}
     error_dict = {}
+    net.eval()
 
     dataset = MeshData(dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4)
@@ -172,10 +172,6 @@ def main(args):
 
     print('Initializing parameters')
     # template_mesh = pc2mesh(template)
-    random_seeds = config['random_seeds']
-    torch_geometric.seed_everything(random_seeds)
-
- 
 
     checkpoint_dir = os.path.join( os.path.dirname( args.conf ), config['checkpoint_dir'] )
     config['checkpoint_dir'] = checkpoint_dir
