@@ -237,14 +237,13 @@ def main(args):
     net = get_model(config, device, model_type="cheb_GCN")
     print('loading template...', config['template'])
 
-
+    checkpoint_file = config['checkpoint_file']
     config_dvae = read_config(args.conf)
     dvae = get_model(config_dvae, device, model_type="cheb_VAE", save_init = False)
     print("loading checkpoint for DVAE from ", checkpoint_file)
   
     checkpoint = torch.load(checkpoint_file)
     dvae.load_state_dict(checkpoint['state_dict'])   
-
 
     template_mesh = Mesh(filename=config['template'])
     template = np.array(template_mesh.v)
