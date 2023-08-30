@@ -7,6 +7,7 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import Dataset
+import torch_geometric
 from torch_geometric.data import DataLoader
 import pandas as pd
 import mesh_operations
@@ -171,6 +172,8 @@ def main(args):
 
     print('Initializing parameters')
     # template_mesh = pc2mesh(template)
+    random_seeds = config['random_seeds']
+    torch_geometric.seed_everything(random_seeds)
 
  
 
