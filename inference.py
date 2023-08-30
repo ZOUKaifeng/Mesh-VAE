@@ -69,7 +69,7 @@ def inference(net, output_path, mean, std, config, template, batch_size, faces):
     error_dict = {}
 
     dataset = MeshData(dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
     sucess_path = os.path.join(output_path, "sex_change" )
 
