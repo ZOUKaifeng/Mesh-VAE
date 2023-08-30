@@ -40,6 +40,7 @@ def set_default_parameters(config):
     config.set('Learning Parameters', 'learning_rates_epochs', "500, 10000")
     config.set('Learning Parameters', 'learning_rate_decay', 0.99)
     config.set('Learning Parameters', 'weight_decay', 5e-4)
+    config.set('Learning Parameters', 'dropout', 0.2)
     config.set('Learning Parameters', 'epoch', 300)
 
 
@@ -83,6 +84,7 @@ def read_config(fname):
     config_parms['learning_rates_epochs'] = [float(x) for x in config.get('Learning Parameters', 'learning_rates_epochs').split(',')]
     config_parms['learning_rate_decay'] = config.getfloat('Learning Parameters', 'learning_rate_decay')
     config_parms['weight_decay'] = config.getfloat('Learning Parameters', 'weight_decay')
+    config_parms['dropout'] = config.getfloat('Learning Parameters', 'dropout')
     config_parms['epoch'] = config.getint('Learning Parameters', 'epoch')
     return config_parms
 

@@ -165,7 +165,7 @@ class cheb_VAE(torch.nn.Module):
         self.dec_lin_1 = torch.nn.Linear(self.z+self.num_class, self.num_hidden)
 
         self.dec_lin_2 = torch.nn.Linear(self.num_hidden, self.downsample_matrices[-1].shape[0]*self.filters[-1] )
-        self.dropout = nn.Dropout(p=0.5)
+        self.dropout = nn.Dropout(p=config['dropout'])
 
         self.reset_parameters()
         self.type = model
