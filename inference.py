@@ -1,5 +1,6 @@
 
 import argparse
+import json
 import os
 import torch
 import torch.nn as nn
@@ -161,12 +162,20 @@ def main(args):
     print(args.conf)
     config = read_config(args.conf)
 
+    if args.parameter : 
+        for option in args.parameter:
+            value = option[ 1 ]
+            if not isinstance( config[ option[ 0 ] ], str ) :
+                value = json.loads( value )
+            config[ option[ 0 ] ] = value
+
     print('Initializing parameters')
     # template_mesh = pc2mesh(template)
 
  
 
-    checkpoint_dir = config['checkpoint_dir']
+    checkpoint_dir = os.path.join( os.path.dirname( args.conf ), config['checkpoint_dir'] )
+    config['checkpoint_dir'] = checkpoint_dir
     if not os.path.exists(checkpoint_dir):
         os.makedirs(checkpoint_dir)
 
@@ -217,6 +226,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Pytorch Trainer')
     parser.add_argument('-c', '--conf', help='path of config file')
+    parser.add_argument( "-p", "--parameter", metavar=('parameter', 'value'), action='append', nargs=2, help = "config parameters" )
     parser.add_argument('-o', '--output_path',type = str, default= " ")
     parser.add_argument('-d', '--data_dir',type = str, default= " ")
     parser.add_argument('-n', '--model',type = int, default= 1)
