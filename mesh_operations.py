@@ -228,11 +228,11 @@ def setup_deformation_transfer(source, target, use_normals=False):
         if n_id == 0:
             # Closest surface point in triangle
             A = np.vstack((source.v[nearest_f])).T
-            coeffs_v[3 * i:3 * i + 3] = np.linalg.lstsq(A, nearest_v)[0]
+            coeffs_v[3 * i:3 * i + 3] = np.linalg.lstsq(A, nearest_v, rcond=None)[0]
         elif n_id > 0 and n_id <= 3:
             # Closest surface point on edge
             A = np.vstack((source.v[nearest_f[n_id - 1]], source.v[nearest_f[n_id % 3]])).T
-            tmp_coeffs = np.linalg.lstsq(A, target.v[i])[0]
+            tmp_coeffs = np.linalg.lstsq(A, target.v[i], rcond=None)[0]
             coeffs_v[3 * i + n_id - 1] = tmp_coeffs[0]
             coeffs_v[3 * i + n_id % 3] = tmp_coeffs[1]
         else:
