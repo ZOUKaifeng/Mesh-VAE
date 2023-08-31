@@ -31,6 +31,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def train(model, dvae, train_loader, optimizer, device, criterion):
     model.train()
+    dvae.eval()
     total_loss = 0
     total = 0
     correct = 0
@@ -45,10 +46,7 @@ def train(model, dvae, train_loader, optimizer, device, criterion):
         optimizer.step()
         batch_size = label.shape[0]
         total_loss += loss.cpu().detach().numpy() * batch_size
-       # print(torch.nn.functional.softmax(pred))
-        #predicted = torch.argmax(torch.nn.functional.softmax(pred), dim = -1)
         predicted = torch.argmax(F.softmax(pred), dim = -1)
-      #  print(predicted)
         total += batch_size
         correct += (predicted == label).sum().item()
 
@@ -61,7 +59,7 @@ def evaluate(model, dvae, test_loader, device, criterion, err_file = False):
     total = 0
     correct = 0
     err = {}
-    predicted_dist = np.empty((0))
+
     with torch.no_grad():
         for data in test_loader:
             x,x_gt, label, f, gt_mesh , R,m,s = data
