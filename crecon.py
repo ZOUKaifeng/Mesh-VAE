@@ -29,7 +29,7 @@ import json
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def train(model, dvae, train_loader, len_dataset, optimizer, device, criterion):
+def train(model, dvae, train_loader, optimizer, device, criterion):
     model.train()
     total_loss = 0
     total = 0
@@ -43,17 +43,18 @@ def train(model, dvae, train_loader, len_dataset, optimizer, device, criterion):
         loss = criterion(pred, label)
         loss.backward()
         optimizer.step()
-        total_loss += loss.cpu().detach().numpy()
+        batch_size = label.shape[0]
+        total_loss += loss.cpu().detach().numpy() * batch_size
        # print(torch.nn.functional.softmax(pred))
         #predicted = torch.argmax(torch.nn.functional.softmax(pred), dim = -1)
         predicted = torch.argmax(F.softmax(pred), dim = -1)
       #  print(predicted)
-        total += label.shape[0]
+        total += batch_size
         correct += (predicted == label).sum().item()
 
-    return total_loss / len_dataset, correct/total
+    return total_loss / total, correct / total
 
-def evaluate(model, dvae, test_loader, len_dataset, device, criterion, err_file = False):
+def evaluate(model, dvae, test_loader, device, criterion, err_file = False):
     model.eval()
     dvae.eval()
     total_loss = 0
@@ -67,10 +68,11 @@ def evaluate(model, dvae, test_loader, len_dataset, device, criterion, err_file 
             x_gt, label = x_gt.to(device).float(), label.to(device)
             diff, _ = estimate_diff(dvae, x_gt, label, "test")
             pred = model(diff)
+            batch_size = label.shape[0]
             loss = criterion(pred, label)
-            total_loss +=  loss.cpu().numpy()
+            total_loss +=  loss.cpu().numpy() * batch_size
             predicted =torch.argmax(F.softmax(pred), dim = -1)
-            total += label.shape[0]
+            total += batch_size
             correct += (predicted == label).sum().item()
 
             if err_file == True:
@@ -84,7 +86,7 @@ def evaluate(model, dvae, test_loader, len_dataset, device, criterion, err_file 
                     if predicted[idx] != label[idx]:
                         err.update({f[idx]: str(predicted[idx])})
 
-    return total_loss / len_dataset, correct/total, err
+    return total_loss / total, correct/total, err
 
 def estimate_diff(net, x, y,dtype):
     net = net.to(device)
@@ -196,8 +198,8 @@ def main(args):
 
             for epoch in range(1, total_epochs + 1):
                 begin = time.time()
-                train_loss, train_acc = train(net, dvae, train_loader, len(train_loader), optimizer, device, criterion)
-                val_loss, valid_acc, _ = evaluate(net,dvae, valid_loader, len(valid_loader),device, criterion)
+                train_loss, train_acc = train(net, dvae, train_loader, optimizer, device, criterion)
+                val_loss, valid_acc, _ = evaluate(net,dvae, valid_loader, device, criterion)
 
                 if valid_acc >= best_val_acc:
                     save_model(net, optimizer, n, train_loss, val_loss, checkpoint_dir)
@@ -232,7 +234,7 @@ def main(args):
 
             test_dataset = MeshData(np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())  
             test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
-            test_loss, test_acc, _ = evaluate(net, dvae, test_loader, len(test_loader), device, criterion, err_file = False)
+            test_loss, test_acc, _ = evaluate(net, dvae, test_loader, device, criterion, err_file = False)
 
             print( 'test loss ', test_loss, 'test acc',test_acc)
 
