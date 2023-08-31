@@ -158,7 +158,6 @@ def main(args):
     template_file_path = config['template']
     val_losses, accs, durations = [], [], []
 
-    net = get_model(config, device, model_type="cheb_GCN")
     print('loading template...', config['template'])
 
     checkpoint_file = config['checkpoint_file']
@@ -190,6 +189,7 @@ def main(args):
         train_, valid_index = train_test_split(np.array(dataset_index)[train_index], test_size=test_size, random_state = random_seeds)
 
         history = []
+        net = get_model(config, device, model_type="cheb_GCN")
         optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
         n+=1
 
