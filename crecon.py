@@ -143,38 +143,28 @@ def main(args):
     if args.cpu : device = 'cpu'
     print("Using device:",device)
 
-    root_dir = config['root_dir']
-    error_file = config['error_file']
-    log_path = config['log_file']
     random_seeds = config['random_seeds']
     torch_geometric.seed_everything(random_seeds)
-    n_splits = config['folds']
-    test_size = config['test_size']
     lr = config['learning_rate']
     lr_decay = config['learning_rate_decay']
     weight_decay = config['weight_decay']
     total_epochs = config['epoch']
-    workers_thread = config['workers_thread']
     opt = config['optimizer']
     batch_size = config['batch_size']
-    template_file_path = config['template']
-    val_losses, accs, durations = [], [], []
-
-    print('loading template...', config['template'])
 
     checkpoint_file = config['checkpoint_file']
-    config_dvae = read_config(args.conf)
-    dvae = get_model(config_dvae, device, model_type="cheb_VAE", save_init = False)
+    dvae = get_model(config, device, model_type="cheb_VAE", save_init = False)
     print("loading checkpoint for DVAE from ", checkpoint_file)
   
     checkpoint = torch.load(checkpoint_file)
     dvae.load_state_dict(checkpoint['state_dict'])   
 
+    print('loading template...', config['template'])
     template_mesh = Mesh(filename=config['template'])
     template = np.array(template_mesh.v)
     faces = np.array(template_mesh.f)
     #criterion = BCEFocalLoss()
-    my_log = open(log_path, 'w')
+    my_log = open(config['log_file'], 'w')
 
     print('model type:', config['type'], file = my_log)
     print('optimizer type', opt, file = my_log)
@@ -183,12 +173,12 @@ def main(args):
     print(checkpoint_file)
     criterion = torch.nn.CrossEntropyLoss()
     dataset_index, labels = listMeshes( config )
-    skf = RepeatedStratifiedKFold(n_splits=n_splits, n_repeats=1, random_state = random_seeds)
+    skf = RepeatedStratifiedKFold(n_splits=config['folds'], n_repeats=1, random_state = random_seeds)
     n = 0
     y = np.ones(len(dataset_index))
 
     for train_index, test_index in skf.split(dataset_index, y):
-        train_, valid_index = train_test_split(np.array(dataset_index)[train_index], test_size=test_size, random_state = random_seeds)
+        train_, valid_index = train_test_split(np.array(dataset_index)[train_index], test_size=config['test_size'], random_state = random_seeds)
 
         history = []
         net = get_model(config, device, model_type="cheb_GCN")
