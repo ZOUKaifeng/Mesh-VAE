@@ -45,7 +45,7 @@ def train(model, dvae, train_loader, optimizer, device, criterion):
         optimizer.step()
         batch_size = label.shape[0]
         total_loss += loss.cpu().detach().numpy() * batch_size
-        predicted = torch.argmax(F.softmax(pred), dim = -1)
+        predicted = torch.argmax(F.softmax(pred, 1), dim = -1)
         total += batch_size
         correct += (predicted == label).sum().item()
 
@@ -68,7 +68,7 @@ def evaluate(model, dvae, test_loader, device, criterion, err_file = False):
             batch_size = label.shape[0]
             loss = criterion(pred, label)
             total_loss +=  loss.cpu().numpy() * batch_size
-            predicted =torch.argmax(F.softmax(pred), dim = -1)
+            predicted =torch.argmax(F.softmax(pred, 1), dim = -1)
             total += batch_size
             correct += (predicted == label).sum().item()
 
