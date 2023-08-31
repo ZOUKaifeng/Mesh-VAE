@@ -14,6 +14,7 @@ import numpy as np
 import torch.nn.functional as F
 #from torch.utils.data import Dataset, DataLoader
 from torch_geometric.data import Dataset, DataLoader
+import torch_geometric
 import mesh_operations
 from config_parser import read_config
 from data import MeshData, listMeshes, save_obj
@@ -146,6 +147,7 @@ def main(args):
     error_file = config['error_file']
     log_path = config['log_file']
     random_seeds = config['random_seeds']
+    torch_geometric.seed_everything(random_seeds)
     n_splits = config['folds']
     test_size = config['test_size']
     lr = config['learning_rate']
