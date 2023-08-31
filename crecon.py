@@ -183,7 +183,7 @@ def main(args):
     print(checkpoint_file)
     criterion = torch.nn.CrossEntropyLoss()
     dataset_index, labels = listMeshes( config )
-    skf = RepeatedStratifiedKFold(n_splits=5, n_repeats=1, random_state = random_seeds)  # 5-folds repeated 10 times  
+    skf = RepeatedStratifiedKFold(n_splits=n_splits, n_repeats=1, random_state = random_seeds)
     n = 0
     y = np.ones(len(dataset_index))
 
