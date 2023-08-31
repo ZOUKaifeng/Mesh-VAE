@@ -1,4 +1,3 @@
-
 import argparse
 import json
 import os
@@ -8,60 +7,18 @@ import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torch_geometric.data import DataLoader
-import pandas as pd
-import mesh_operations
 from config_parser import read_config
 from data import MeshData, listMeshes, save_obj
-from model import get_model
+from model import get_model, classifier_
 from transform import Normalize
 from utils import *
 from psbody.mesh import Mesh
-from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
-import matplotlib.pyplot as plt
 from tqdm import tqdm
  
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Using device:",device)
 
-def adjust_learning_rate(optimizer, lr_decay):
-
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = param_group['lr'] * lr_decay
-
-def save_model(coma, optimizer, epoch, train_loss, val_loss, checkpoint_dir):
-    checkpoint = {}
-    checkpoint['state_dict'] = coma.state_dict()
-    checkpoint['optimizer'] = optimizer.state_dict()
-    checkpoint['epoch_num'] = epoch
-    checkpoint['train_loss'] = train_loss
-    checkpoint['val_loss'] = val_loss
-    torch.save(checkpoint, os.path.join(checkpoint_dir, 'checkpoint_'+ str(epoch)+'.pt'))
-
-
-def classifier_(net, x):
-
-    x = net.encoder(x)
-    y_hat = net.classifier(x)
-    index_pred = torch.argmax(y_hat,  dim = 1)
-   #pred = torch.argmax(oppo_sex, dim = 1)
- 
-    return  index_pred
-
-def euclidean_distances(gt, pred):
-    return np.sqrt(((gt-pred)**2).sum(-1))
-
-
-
-def scipy_to_torch_sparse(scp_matrix):
-    values = scp_matrix.data
-    indices = np.vstack((scp_matrix.row, scp_matrix.col))
-    i = torch.LongTensor(indices)
-    v = torch.FloatTensor(values)
-    shape = scp_matrix.shape
-
-
 def inference(net, output_path, mean, std, config, template, batch_size, faces):
-
     dataset_index, labels = listMeshes( config, False )
     results = {}
     pred_sex = {}

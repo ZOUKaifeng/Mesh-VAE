@@ -10,46 +10,20 @@ main function
 import argparse
 import os
 import torch
-import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 import torch_geometric
 from torch_geometric.data import Dataset, DataLoader
-import pandas as pd
 import mesh_operations
 from config_parser import read_config
 from data import MeshData, listMeshes, save_obj
-from model import get_model
+from model import get_model, classifier_, save_model
 from transform import Normalize
 from utils import *
 from psbody.mesh import Mesh
 from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
-import matplotlib.pyplot as plt
-import random
 import json
 import time
- 
-def save_model(coma, optimizer, epoch, train_loss, val_loss, checkpoint_dir):
-    checkpoint = {}
-    checkpoint['state_dict'] = coma.state_dict()
-    checkpoint['optimizer'] = optimizer.state_dict()
-    checkpoint['epoch_num'] = epoch
-    checkpoint['train_loss'] = train_loss
-    checkpoint['val_loss'] = val_loss
-    torch.save(checkpoint, os.path.join(checkpoint_dir, 'checkpoint_'+ str(epoch)+'.pt'))
-
-
-def classifier_(net, x):
-
-    x = net.encoder(x)
-    y_hat = net.classifier(x)
-    index_pred = torch.argmax(y_hat,  dim = 1)
-   #pred = torch.argmax(oppo_sex, dim = 1)
- 
-    return  index_pred
-
-def euclidean_distances(gt, pred):
-    return np.sqrt(((gt-pred)**2).sum(-1))
 
 def train(model, train_loader, optimizer, device, checkpoint_dir):
     model.train()

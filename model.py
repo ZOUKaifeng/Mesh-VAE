@@ -7,8 +7,6 @@ Created on Mon Oct 19 17:20:10 2020
 
 model selection
 """
-
-
 import os
 from models.cheb_VAE import cheb_VAE
 from models.cheb_cls import cheb_GCN
@@ -20,6 +18,20 @@ import open3d as o3d
 import numpy as np
 from utils import *
 
+def save_model(coma, optimizer, epoch, train_loss, val_loss, checkpoint_dir):
+    checkpoint = {}
+    checkpoint['state_dict'] = coma.state_dict()
+    checkpoint['optimizer'] = optimizer.state_dict()
+    checkpoint['epoch_num'] = epoch
+    checkpoint['train_loss'] = train_loss
+    checkpoint['val_loss'] = val_loss
+    torch.save(checkpoint, os.path.join(checkpoint_dir, 'checkpoint_'+ str(epoch)+'.pt'))
+
+def classifier_(net, x):
+    x = net.encoder(x)
+    y_hat = net.classifier(x)
+    index_pred = torch.argmax(y_hat,  dim = 1)
+    return  index_pred
 
 def scipy_to_torch_sparse(scp_matrix):
     values = scp_matrix.data

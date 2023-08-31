@@ -4,6 +4,9 @@ import torch
 import  open3d as o3d
 from scipy.linalg import orthogonal_procrustes
 
+def euclidean_distances(gt, pred):
+    return np.sqrt(((gt-pred)**2).sum(-1))
+
 def row(A):
     return A.reshape((1, -1))
 
