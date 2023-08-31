@@ -57,7 +57,7 @@ class cheb_GCN(torch.nn.Module):
     def __init__(self, num_feature, config, downsample_matrices, upsample_matrices, adjacency_matrices, num_nodes):
         super(cheb_GCN, self).__init__()
         self.n_layers = config['n_layers']
-        self.filters = config['num_conv_filters']
+        self.filters = config['num_conv_filters'].copy()
         self.filters.insert(0, num_feature)  # To get initial features per node
         self.z = config['num_classes']
         self.K = config['polygon_order']
