@@ -12,7 +12,6 @@ from torch.utils.data import Dataset
 import mesh_operations
 from psbody.mesh import Mesh
 from torch_geometric.data import Data
-import open3d as o3d
 from sklearn.model_selection import train_test_split
 from utils import procrustes
 import copy

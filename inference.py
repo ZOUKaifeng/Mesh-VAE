@@ -135,11 +135,6 @@ def main(args):
     if not os.path.exists(checkpoint_dir):
         os.makedirs(checkpoint_dir)
 
-
-
-
-
-
     config[ 'root_dir' ] = args.data_dir
     output_path = args.output_path
 
@@ -157,16 +152,11 @@ def main(args):
     template_file_path = config['template']
     val_losses, accs, durations = [], [], []
 
-
-    net = get_model(config, device)
+    net, template_mesh = get_model(config, device)
     print('loading template...', config['template'])
-    template_mesh = Mesh(filename=config['template'])
     template = np.array(template_mesh.v)
     faces = np.array(template_mesh.f)
     num_points = template.shape[0]
-
-
-    #criterion = BCEFocalLoss()
 
     checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(args.model)+'.pt')
     checkpoint = torch.load(checkpoint_file)

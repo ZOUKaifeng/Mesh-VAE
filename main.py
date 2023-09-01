@@ -187,13 +187,11 @@ def main(args):
     batch_size = config['batch_size']
     torch_geometric.seed_everything(random_seeds)
 
-    net = get_model(config, device)
     print('loading template...', config['template'])
-    template_mesh = Mesh(filename=config['template'])
+    net, template_mesh = get_model(config, device)
     template = np.array(template_mesh.v)
     faces = np.array(template_mesh.f)
 
-    checkpoint_file = config['checkpoint_file']
 
     my_log = open(log_path, 'w')
 
@@ -202,6 +200,8 @@ def main(args):
     print('learning rate:', lr, file = my_log)
 
     start_epoch = 1
+
+    checkpoint_file = config['checkpoint_file']
     print(checkpoint_file)
     if checkpoint_file:
         checkpoint = torch.load(checkpoint_file)

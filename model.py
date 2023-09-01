@@ -14,7 +14,6 @@ from models.cheb_cls import cheb_GCN
 from psbody.mesh import Mesh
 import torch
 import mesh_operations
-import open3d as o3d
 import numpy as np
 from utils import *
 
@@ -45,12 +44,8 @@ def scipy_to_torch_sparse(scp_matrix):
 
 
 def get_model(config, device, model_type  = None, save_init = True):
-    template_mesh = o3d.io.read_triangle_mesh(config['template'])
-    template_mesh = Mesh(v=template_mesh.vertices, f=template_mesh.triangles)
+    template_mesh = Mesh(filename=config['template'])
     num_feature = template_mesh.v.shape[1]
-
-    
-
     M, A, D, U = mesh_operations.generate_transform_matrices(template_mesh, config['downsampling_factors'])
 
     D_t = [scipy_to_torch_sparse(d).to(device) for d in D]
@@ -127,6 +122,6 @@ def get_model(config, device, model_type  = None, save_init = True):
     # else:
     #     raise RuntimeError('No such model type, please choose model from ["cheb_GCN", "saptial_conv", "DGCNN", "raph attention network"]')
 
-    return net
+    return net, template_mesh
 
         

@@ -151,17 +151,16 @@ def main(args):
     opt = config['optimizer']
     batch_size = config['batch_size']
 
+    print('loading template...', config['template'])
+    dvae, template_mesh = get_model(config, device, model_type="cheb_VAE", save_init = False)
+    template = np.array(template_mesh.v)
+    faces = np.array(template_mesh.f)
+
     checkpoint_file = config['checkpoint_file']
-    dvae = get_model(config, device, model_type="cheb_VAE", save_init = False)
     print("loading checkpoint for DVAE from ", checkpoint_file)
-  
     checkpoint = torch.load(checkpoint_file)
     dvae.load_state_dict(checkpoint['state_dict'])   
 
-    print('loading template...', config['template'])
-    template_mesh = Mesh(filename=config['template'])
-    template = np.array(template_mesh.v)
-    faces = np.array(template_mesh.f)
     #criterion = BCEFocalLoss()
     my_log = open(config['log_file'], 'w')
 
@@ -180,7 +179,7 @@ def main(args):
         train_, valid_index = train_test_split(np.array(dataset_index)[train_index], test_size=config['test_size'], random_state = random_seeds)
 
         history = []
-        net = get_model(config, device, model_type="cheb_GCN")
+        net, _unused = get_model(config, device, model_type="cheb_GCN")
         optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
         n+=1
 

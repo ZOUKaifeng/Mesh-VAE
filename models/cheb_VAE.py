@@ -7,25 +7,13 @@ Created on Mon Oct 15 13:43:10 2020
 
 chebyshev conv and surface pooling for graph classification
 """
-
-
+import logpdf
+from math import sqrt
+from nn.pool import SurfacePool
+from nn.conv import ChebConv_batch
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-
-from nn.pool import SurfacePool
-from nn.conv import ChebConv_batch
-
-import logpdf
-
-from math import sqrt
-
-
-def binary_cross_entropy(x_mean, x, EPS=1e-9):
-    return - (torch.log(x_mean + EPS) * x +
-              torch.log(1 - x_mean + EPS) * (1 - x)).sum(-1)
-
 
 class EqualLR:
     def __init__(self, name):
@@ -349,8 +337,5 @@ class cheb_VAE(torch.nn.Module):
     def reset_parameters(self):
         torch.nn.init.normal_(self.enc_lin.weight, 0, 0.1)
         torch.nn.init.normal_(self.dec_lin.weight, 0, 0.1)
-
-
-
 
 
