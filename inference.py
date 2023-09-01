@@ -1,19 +1,18 @@
 import argparse
+from config_parser import read_config
+from data import MeshData, listMeshes, save_obj
 import json
+from model import get_model, classifier_
+import numpy as np
 import os
 import torch
 import torch.nn as nn
-import numpy as np
 import torch.nn.functional as F
+from torch_geometric.loader import DataLoader
 from torch.utils.data import Dataset
-from torch_geometric.data import DataLoader
-from config_parser import read_config
-from data import MeshData, listMeshes, save_obj
-from model import get_model, classifier_
+from tqdm import tqdm
 from transform import Normalize
 from utils import *
-from psbody.mesh import Mesh
-from tqdm import tqdm
  
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Using device:",device)
@@ -26,7 +25,7 @@ def inference(net, output_path, mean, std, config, template, batch_size, faces):
     net.eval()
 
     dataset = MeshData(dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     sucess_path = os.path.join(output_path, "sex_change" )
 
