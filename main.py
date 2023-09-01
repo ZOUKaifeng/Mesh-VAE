@@ -187,12 +187,6 @@ def main(args):
     batch_size = config['batch_size']
     torch_geometric.seed_everything(random_seeds)
 
-    print('loading template...', config['template'])
-    net, template_mesh = get_model(config, device)
-    template = np.array(template_mesh.v)
-    faces = np.array(template_mesh.f)
-
-
     my_log = open(log_path, 'w')
 
     print('model type:', config['type'], file = my_log)
@@ -224,7 +218,10 @@ def main(args):
     for train_index, test_index in skf.split(dataset_index, y):
         train_, valid_index = train_test_split(np.array(dataset_index)[train_index], test_size=test_size, random_state = random_seeds)
         history = []
-        net.load_state_dict(torch.load(os.path.join(checkpoint_dir, 'initial_weight.pt')))
+        print('loading template...', config['template'])
+        net, template_mesh = get_model(config, device)
+        template = np.array(template_mesh.v)
+        faces = np.array(template_mesh.f)
         optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
         n+=1
 
