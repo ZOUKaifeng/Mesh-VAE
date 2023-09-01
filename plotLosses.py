@@ -40,6 +40,8 @@ for loss in lossTypes:
 
 duration = data[ -1 ][ 'begin' ] - data[ 0 ][ 'begin' ] + data[ -1 ][ "duration" ]
 text = "Total training time : " + format_timespan( math.ceil( duration ) )
+if "test" in data[ -1 ] :
+	text += "\ntest : " + json.dumps( data[ -1 ][ "test" ] )
 if args.config : text += "\nConfig : " + json.dumps( read_config( args.config ) )
 figure.text( 0.1, 0.15, text, wrap = True )
 
