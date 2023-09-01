@@ -8,22 +8,21 @@ Created on Mon Oct 05 13:43:10 2020
 main function 
 """
 import argparse
-import os
-import torch
-import numpy as np
-import torch.nn.functional as F
-import torch_geometric
-from torch_geometric.data import Dataset, DataLoader
-import mesh_operations
 from config_parser import read_config
 from data import MeshData, listMeshes, save_obj
+import json
 from model import get_model, classifier_, save_model
+import numpy as np
+from psbody.mesh import Mesh
+import os
+from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
+import time
+import torch
+import torch.nn.functional as F
+import torch_geometric
+from torch_geometric.loader import DataLoader
 from transform import Normalize
 from utils import *
-from psbody.mesh import Mesh
-from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
-import json
-import time
 
 def train(model, train_loader, optimizer, device, checkpoint_dir):
     model.train()
@@ -159,6 +158,13 @@ def main(args):
     print(args.conf)
     config = read_config(args.conf)
 
+    if args.parameter :
+        for option in args.parameter:
+            value = option[ 1 ]
+            if not isinstance( config[ option[ 0 ] ], str ) :
+                value = json.loads( value )
+            config[ option[ 0 ] ] = value
+
     print('Initializing parameters')
 
     checkpoint_dir = config['checkpoint_dir']
@@ -177,12 +183,9 @@ def main(args):
     lr_decay = config['learning_rate_decay']
     weight_decay = config['weight_decay']
     total_epochs = config['epoch']
-    workers_thread = config['workers_thread']
     opt = config['optimizer']
     batch_size = config['batch_size']
-    template_file_path = config['template']
     torch_geometric.seed_everything(random_seeds)
-
 
     net = get_model(config, device)
     print('loading template...', config['template'])
@@ -203,7 +206,7 @@ def main(args):
     if checkpoint_file:
         checkpoint = torch.load(checkpoint_file)
         start_epoch = checkpoint['epoch_num']
-        coma.load_state_dict(checkpoint['state_dict'])
+        net.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         #To find if this is fixed in pytorch
         for state in optimizer.state.values():
@@ -227,10 +230,10 @@ def main(args):
 
         if args.train:
             train_dataset = MeshData(train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
-            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
             valid_dataset = MeshData(valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
-            valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+            valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True)
             best_loss = 10000000
 
             for epoch in range(start_epoch, total_epochs + 1):
@@ -280,12 +283,11 @@ def main(args):
                     print( toPrint )
                     print( toPrint, file = my_log)
 
-            with open(os.path.join(checkpoint_dir, 'history' + str( n ) + '.json'), 'w') as fp:
-                json.dump(history, fp)
+        else : history.append( {} )
 
         if args.test:
             test_dataset = MeshData(np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())
-            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
             checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
             checkpoint = torch.load(checkpoint_file)
             net.load_state_dict(checkpoint['state_dict'])
@@ -296,17 +298,28 @@ def main(args):
             toPrint = toPrint.format( n, test_loss, np.mean(test_error), np.std(test_error), cls_acc, acc )
             print( toPrint )
             print( toPrint, file = my_log )
+            history[ -1 ][ "test" ] = {
+                "loss" : test_loss,
+                "kld" : test_kld,
+                "reconstruction_loss" : test_rec_loss,
+                "accuracy" : cls_acc.item(),
+                "error" : np.mean( test_error ).item(),
+                "sex_change_success_rate" : acc
+            }
+
+        with open(os.path.join(checkpoint_dir, 'history' + str( n ) + '.json'), 'w') as fp:
+            json.dump(history, fp)
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Pytorch Trainer', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-c', '--conf', help='path of config file')
+    parser.add_argument( "-p", "--parameter", metavar=('parameter', 'value'), action='append', nargs=2, help = "config parameters" )
     parser.add_argument('-t', '--train',action='store_true')
     parser.add_argument('-s', '--test',action='store_true')
     parser.add_argument('--cpu',action='store_true', help = "force cpu")
     parser.add_argument('-v', '--vis',action='store_true', help = "save transformed meshes")
-
     args = parser.parse_args()
 
     if args.conf is None:
