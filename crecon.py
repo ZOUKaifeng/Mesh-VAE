@@ -151,7 +151,6 @@ def main(args):
     opt = config['optimizer']
     batch_size = config['batch_size']
 
-    print('loading template...', config['template'])
     dvae, template_mesh = get_model(config, device, model_type="cheb_VAE", save_init = False)
     template = np.array(template_mesh.v)
     faces = np.array(template_mesh.f)
@@ -161,7 +160,6 @@ def main(args):
     checkpoint = torch.load(checkpoint_file)
     dvae.load_state_dict(checkpoint['state_dict'])   
 
-    #criterion = BCEFocalLoss()
     my_log = open(config['log_file'], 'w')
 
     print('model type:', config['type'], file = my_log)
@@ -169,6 +167,7 @@ def main(args):
     print('learning rate:', lr, file = my_log)
 
     print(checkpoint_file)
+    #criterion = BCEFocalLoss()
     criterion = torch.nn.CrossEntropyLoss()
     dataset_index, labels = listMeshes( config )
     skf = RepeatedStratifiedKFold(n_splits=config['folds'], n_repeats=1, random_state = random_seeds)
@@ -219,21 +218,25 @@ def main(args):
                     }
                 } )
 
-            with open(os.path.join(checkpoint_dir, 'history' + str( n ) + '.json'), 'w') as fp:
-                json.dump(history, fp)
 
         if args.test:
             if not args.train:
                 checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
                 checkpoint = torch.load(checkpoint_file)
                 net.load_state_dict(checkpoint['state_dict'])
+                history.append( {} )
 
             test_dataset = MeshData(np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())  
             test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
             test_loss, test_acc, _ = evaluate(net, dvae, test_loader, device, criterion, err_file = False)
 
             print( 'test loss ', test_loss, 'test acc',test_acc)
-
+            history[ -1 ][ "test" ] = {
+                "loss" : test_loss,
+                "accuracy" : test_acc
+            }
+        with open(os.path.join(checkpoint_dir, 'history' + str( n ) + '.json'), 'w') as fp:
+            json.dump(history, fp)
 
 if __name__ == '__main__':
 
