@@ -22,7 +22,7 @@ from torch_geometric.data import Dataset, DataLoader
 import pandas as pd
 import mesh_operations
 from config_parser import read_config
-from data import MeshData
+from data import MeshData, listMeshes, save_obj
 from model import get_model
 from transform import Normalize
 from utils import *
@@ -33,16 +33,6 @@ import matplotlib.pyplot as plt
 import copy
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
  
-
-def save_obj(filename, vertices, faces):
-    with open(filename, 'w') as fp:
-        for v in vertices:
-            fp.write('v %f %f %f\n' % (v[0], v[1], v[2]))
-
-        for f in faces + 1:
-            fp.write('f %d %d %d\n' % (f[0], f[1], f[2]))
-
-
 
 def adjust_learning_rate(optimizer, lr_decay):
 
@@ -244,17 +234,16 @@ def main(args):
     template_file_path = config['template']
     val_losses, accs, durations = [], [], []
 
-    net = get_model(config, device)
+    net = get_model(config, device, model_type="cheb_GCN")
     print('loading template...', config['template'])
 
-
+    checkpoint_file = config['checkpoint_file']
     config_dvae = read_config(args.conf)
-    dvae = get_model(config_dvae, device, save_init = False)
+    dvae = get_model(config_dvae, device, model_type="cheb_VAE", save_init = False)
     print("loading checkpoint for DVAE from ", checkpoint_file)
   
     checkpoint = torch.load(checkpoint_file)
     dvae.load_state_dict(checkpoint['state_dict'])   
-
 
     template_mesh = Mesh(filename=config['template'])
     template = np.array(template_mesh.v)
@@ -277,18 +266,7 @@ def main(args):
     print(checkpoint_file)
     criterion = torch.nn.CrossEntropyLoss()
 
-    labels = {}
-    dataset_index = []
-    files = os.listdir(root_dir)
-    for name in files:
-        if not name.endswith(".obj") : continue
-        name_ = name.split("_")
-        dataset_index.append(name)
-        if name_[1] == "f":
-            labels[name] = 0
-        else:
-            labels[name] = 1
-
+    dataset_index, labels = listMeshes( config )
     acc = []
 
     import time
@@ -331,18 +309,16 @@ def main(args):
   
 
             optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
-
             n+=1
-            train_dataset = MeshData(root_dir, train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
-            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-
-            valid_dataset = MeshData( root_dir, valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
-            valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-
-
-            best_val_acc = 0
 
             if args.train:
+
+                best_val_acc = 0
+                train_dataset = MeshData(train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
+                train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+
+                valid_dataset = MeshData(valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+                valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 
                 for epoch in range(start_epoch, total_epochs + 1):
 
@@ -364,17 +340,17 @@ def main(args):
         
 
 
-
             if args.test:
+                if not args.train:
+                    checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
+                    checkpoint = torch.load(checkpoint_file)
+                    net.load_state_dict(checkpoint['state_dict'])
 
-                test_dataset = MeshData( root_dir, test_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())  
+                test_dataset = MeshData(np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())  
                 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
                 test_loss, test_acc, _ = evaluate(net, dvae, test_loader, len(test_loader), device, criterion, err_file = False)
 
                 print( 'test loss ', test_loss, 'test acc',test_acc)
-
-
-
 
 
 

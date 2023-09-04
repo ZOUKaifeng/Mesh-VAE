@@ -7,20 +7,18 @@ Created on Mon Oct 05 13:43:10 2020
 
 main function 
 """
-
-
-
 import argparse
 import os
 import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
+import torch_geometric
 from torch_geometric.data import Dataset, DataLoader
 import pandas as pd
 import mesh_operations
 from config_parser import read_config
-from data import MeshData
+from data import MeshData, listMeshes, save_obj
 from model import get_model
 from transform import Normalize
 from utils import *
@@ -31,22 +29,6 @@ import random
 import json
 import time
  
-
-def save_obj(filename, vertices, faces):
-    with open(filename, 'w') as fp:
-        for v in vertices:
-            fp.write('v %f %f %f\n' % (v[0], v[1], v[2]))
-
-        for f in faces + 1:
-            fp.write('f %d %d %d\n' % (f[0], f[1], f[2]))
-
-
-
-def adjust_learning_rate(optimizer, lr_decay):
-
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = param_group['lr'] * lr_decay
-
 def save_model(coma, optimizer, epoch, train_loss, val_loss, checkpoint_dir):
     checkpoint = {}
     checkpoint['state_dict'] = coma.state_dict()
@@ -69,32 +51,27 @@ def classifier_(net, x):
 def euclidean_distances(gt, pred):
     return np.sqrt(((gt-pred)**2).sum(-1))
 
-def train(model, train_loader, len_dataset, optimizer, device,num_points, checkpoint_dir = None):
+def train(model, train_loader, optimizer, device, checkpoint_dir):
     model.train()
-    total_loss = 0
-    total_rec_loss = 0
-
-    total_kld = 0
-
     norm_dict = np.load(os.path.join(checkpoint_dir, 'norm.npz'), allow_pickle = True)
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
-    error_ = 0
-    sigma = 0
 
-    
-    # lamda = 0.01
-
-    max_error = 0
     total = 0
+    total_loss = 0
+    total_rec_loss = 0
+    total_kld = 0
+    total_error = 0
     total_correct = 0
+
     for data in train_loader:
-        l1_reg = torch.tensor(0.0).to(device)
 
         x,x_gt, y, filename, gt_mesh , R,m,s = data
-
         x, x_gt = x.to(device), x_gt.to(device)
         sex_hot = F.one_hot(y, num_classes = 2).to(device)
+        batch_size = x.num_graphs
+        total += batch_size
+
         optimizer.zero_grad()
         loss, correct, out, z, y_hat = model(x, x_gt, sex_hot, m_type = "train")
 
@@ -103,63 +80,37 @@ def train(model, train_loader, len_dataset, optimizer, device,num_points, checkp
         loss.backward()
         optimizer.step()
 
-        total_loss += loss.cpu().detach().numpy()
-        total_kld += kld.cpu().detach().numpy()
-        total_rec_loss += rec_loss.cpu().detach().numpy()
-
-
-        batch_size = x.num_graphs
-
-        total += batch_size
+        total_loss += loss.cpu().detach().numpy() * batch_size
+        total_kld += kld.cpu().detach().numpy() * batch_size 
+        total_rec_loss += rec_loss.cpu().detach().numpy() * batch_size 
         total_correct += correct
+
         recon_mesh = out.cpu() * std + mean
         s = s.unsqueeze(1)
-
-
         recon_mesh = torch.bmm(recon_mesh * s, R) + m  #procrust
         recon_mesh = recon_mesh.detach().cpu().numpy()
-       
         gt_mesh = gt_mesh.detach().numpy()
         diff = euclidean_distances(recon_mesh, gt_mesh).mean()
-        error_ += diff
+        total_error += diff * batch_size
 
-        if np.max(diff) > max_error:
-            max_error = np.max(diff)
-            idx = np.where(diff==max_error)
+    return total_loss / total, total_kld/total, total_rec_loss/total, total_error/total, total_correct/total
 
-
-            max_error_dict = {filename[idx[0][0]]:max_error}
-    
-
-
-    return total_loss / len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, error_/len_dataset, total_correct/total
-
-def evaluate(n, model, test_loader, len_dataset, device,num_points, faces = None, checkpoint_dir = None, vis = False):
+def evaluate(n, model, test_loader, device, faces = None, checkpoint_dir = None, vis = False):
     model.eval()
-    total_loss = 0
-    total_rec_loss = 0
-    count = 0
-    total_kld = 0
-    error = 0
-    sigma = 0
-
     norm_dict = np.load(os.path.join(checkpoint_dir, 'norm.npz'), allow_pickle = True)
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
-    error_ = np.empty((0, num_points))
-    z_male = []
-    z_female = []
-    max_error = 0
 
     total = 0
+    total_loss = 0
+    total_rec_loss = 0
+    total_kld = 0
+    first = True
+    errors = 0
     total_correct = 0
-
     acc = 0
-    lamda = 0.01
-
 
     if vis:
-
         save_path = os.path.join(checkpoint_dir, "mesh"+str(n))    
         if not os.path.exists(save_path):
             os.makedirs(save_path)
@@ -173,96 +124,59 @@ def evaluate(n, model, test_loader, len_dataset, device,num_points, faces = None
     with torch.no_grad():
         for data in test_loader:
             x,x_gt, y, f, gt_mesh , R,m,s = data
-
             x, x_gt = x.to(device), x_gt.to(device)
             sex_hot = F.one_hot(y, num_classes = 2).to(device)
             loss, correct, out, z, y_hat = model(x, x_gt, sex_hot, m_type = "test")
-
+            batch_size = x.num_graphs
+            total += batch_size
 
             kld = z[0].mean()
             rec_loss = z[1].mean()
-            #loss = kld + rec_loss 
+            total_loss +=  loss.cpu().numpy() * batch_size
+            total_rec_loss += rec_loss.cpu().numpy() * batch_size
+            total_kld += kld.cpu().numpy() * batch_size
 
-            total_loss +=  loss.cpu().numpy()
-            total_rec_loss += rec_loss.cpu().numpy()
-            total_kld += kld.cpu().numpy()
-
-            batch_size = x.num_graphs
             recon_mesh = out.cpu() * std + mean
-
             s = s.unsqueeze(1)
-
             recon_mesh = torch.bmm(recon_mesh * s, R) + m
-
             recon_mesh = recon_mesh.detach().cpu().numpy()
-
-
-
             gt_mesh = gt_mesh.detach().cpu().numpy()
-
-
-            total += batch_size
             total_correct += correct.cpu().numpy()
-
             diff = euclidean_distances(recon_mesh, gt_mesh)
-            #print(diff.shape)
-            error_ = np.concatenate((error_, diff), axis = 0)
+            if first : errors = diff
+            else : errors = np.concatenate( ( errors, diff ), axis = 0 )
+            first = False
             oppo = 1 - sex_hot
             index_gt = torch.argmax(oppo,  dim = 1)
-
             z = z[2]
-
             oppo_x =  model.sample(oppo, z)
-
             index_pred = classifier_(model, oppo_x)
 
-            acc += ((index_pred.squeeze() == index_gt.squeeze()).sum().item()/batch_size)
+            acc += (index_pred.squeeze() == index_gt.squeeze()).sum().item()
 
             oppo_mesh =  oppo_x.cpu() * std + mean
-
             oppo_mesh = torch.bmm(oppo_mesh * s, R) + m
-
             oppo_mesh = oppo_mesh.detach().cpu().numpy()
 
-            if vis:
+            if not vis: continue
        
-                for i in range(batch_size):
-                    file = f[i].split('/')[-1]
-                    file = file.split('.')[0]
-                   # number = int(file[4:])
+            for i in range(batch_size):
+                file = f[i].split('/')[-1]
+                file = file.split('.')[0]
 
-                    if index_pred[i] == index_gt[i]:
+                if index_pred[ i ] == index_gt[ i ] : o_path = sucess_path
+                else : o_path = failed_path
+
+                recon_path = os.path.join(o_path, file+'_recon'+'.obj')
+                save_obj(recon_path, recon_mesh[i], faces)
+
+                gt_path = os.path.join(o_path, file+'_gt'+'.obj')
+                save_obj(gt_path, gt_mesh[i], faces)
+
+                oppo_path = os.path.join(o_path, file+'.obj')
+                save_obj(oppo_path, oppo_mesh[i], faces)
                 
-                        recon_path = os.path.join(sucess_path, file+'_recon'+'.obj')
-                        save_obj(recon_path, recon_mesh[i], faces)
-                        gt_path = os.path.join(sucess_path, file+'_gt'+'.obj')
-                        save_obj(gt_path, gt_mesh[i], faces)
-
-                        oppo_path = os.path.join(sucess_path, file+'.obj')
-                        save_obj(oppo_path, oppo_mesh[i], faces)
-                    else:
-                    
-                        recon_path = os.path.join(failed_path, file+'_recon'+'.obj')
-                        save_obj(recon_path, recon_mesh[i], faces)
-                        gt_path = os.path.join(failed_path, file+'_gt'+'.obj')
-                        save_obj(gt_path, gt_mesh[i], faces)
-
-                        oppo_path = os.path.join(failed_path, file+'.obj')
-                        save_obj(oppo_path, oppo_mesh[i], faces)
-                
-             
-    return total_loss/len_dataset, total_kld/len_dataset, total_rec_loss/len_dataset, total_correct/total, error_, acc/len_dataset, 
-
-def scipy_to_torch_sparse(scp_matrix):
-    values = scp_matrix.data
-    indices = np.vstack((scp_matrix.row, scp_matrix.col))
-    i = torch.LongTensor(indices)
-    v = torch.FloatTensor(values)
-    shape = scp_matrix.shape
-
-
-
-
+    return total_loss/total, total_kld/total, total_rec_loss/total, total_correct/total, errors, acc/total
 
 def main(args):
 
@@ -281,8 +195,6 @@ def main(args):
     if args.cpu : device = 'cpu'
     print("Using device:",device)
 
-    root_dir = config['root_dir']
-    error_file = config['error_file']
     log_path = config['log_file']
     random_seeds = config['random_seeds']
     n_splits = config['folds']
@@ -295,7 +207,7 @@ def main(args):
     opt = config['optimizer']
     batch_size = config['batch_size']
     template_file_path = config['template']
-    val_losses, accs, durations = [], [], []
+    torch_geometric.seed_everything(random_seeds)
 
 
     net = get_model(config, device)
@@ -303,10 +215,6 @@ def main(args):
     template_mesh = Mesh(filename=config['template'])
     template = np.array(template_mesh.v)
     faces = np.array(template_mesh.f)
-    num_points = template.shape[0]
-
-
-    #criterion = BCEFocalLoss()
 
     checkpoint_file = config['checkpoint_file']
 
@@ -315,11 +223,6 @@ def main(args):
     print('model type:', config['type'], file = my_log)
     print('optimizer type', opt, file = my_log)
     print('learning rate:', lr, file = my_log)
-
-	
-    torch.manual_seed(random_seeds)
-    np.random.seed(random_seeds)
-    random.seed(random_seeds)
 
     start_epoch = 1
     print(checkpoint_file)
@@ -334,99 +237,91 @@ def main(args):
                 if isinstance(v, torch.Tensor):
                     state[k] = v.to(device)
 
-    labels = {}
-    dataset_index = []
-    files = sorted( os.listdir(root_dir) )
-    for name in files:
-        if not name.endswith(".obj") : continue
-        name_ = name.split("_")
-        dataset_index.append(name)
-        if name_[1] == "f":
-            labels[name] = 0
-        else:
-            labels[name] = 1
+    dataset_index, labels = listMeshes( config )
 
-    for i in range(1):
+    skf = RepeatedStratifiedKFold(n_splits=n_splits, n_repeats=1, random_state = random_seeds)
 
-        skf = RepeatedStratifiedKFold(n_splits=n_splits, n_repeats=1, random_state = random_seeds)
+    n = 0
+    y = np.ones(len(dataset_index))
 
-        n = 0
-        y = np.ones(len(dataset_index))
+    for train_index, test_index in skf.split(dataset_index, y):
+        train_, valid_index = train_test_split(np.array(dataset_index)[train_index], test_size=test_size, random_state = random_seeds)
+        history = []
+        net.load_state_dict(torch.load(os.path.join(checkpoint_dir, 'initial_weight.pt')))
+        optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
+        n+=1
 
-        for train_index, test_index in skf.split(dataset_index, y):
-            train_, valid_index = train_test_split(np.array(dataset_index)[train_index], test_size=test_size, random_state = random_seeds)
-            history = []
-            net.load_state_dict(torch.load(os.path.join(checkpoint_dir, 'initial_weight.pt')))
-            optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
-            n+=1
+        if args.train:
+            train_dataset = MeshData(train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-            if args.train:
-                train_dataset = MeshData(root_dir, train_, config, labels, dtype = 'train', template = template, pre_transform = Normalize())
-                train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+            valid_dataset = MeshData(valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+            valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+            best_loss = 10000000
 
-                valid_dataset = MeshData(root_dir, valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
-                valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-                best_loss = 10000000
+            for epoch in range(start_epoch, total_epochs + 1):
 
-                for epoch in range(start_epoch, total_epochs + 1):
+                begin = time.time()
 
-                    begin = time.time()
-
-                    if epoch > 500:
+                for e_index, e in enumerate( config['learning_rates_epochs'] ):
+                    if epoch > e:
                         for p in optimizer.param_groups:
-                            p['lr'] = 0.0001
-                    elif epoch > 1000:
-                        for p in optimizer.param_groups:
-                            p['lr'] = 0.00005
-                    train_loss, train_kld, train_rec_loss, train_error, train_acc = train(net, train_loader, len(train_loader), optimizer, device, num_points,checkpoint_dir = checkpoint_dir)
+                            p['lr'] = config['learning_rates'][ e_index ]
 
-                    valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(n, net, valid_loader, len(valid_loader),device, num_points,checkpoint_dir = checkpoint_dir)
+                train_loss, train_kld, train_rec_loss, train_error, train_acc = train(net, train_loader, optimizer, device,checkpoint_dir = checkpoint_dir)
 
-                    duration = time.time() - begin
+                valid_loss, valid_kld, valid_rec_loss, valid_acc, error, acc  = evaluate(n, net, valid_loader, device, checkpoint_dir = checkpoint_dir)
+                mean_val_error = error.mean().item()
 
-                    if valid_loss <= best_loss:
-                        save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir)
-                        best_loss = valid_loss
+                duration = time.time() - begin
 
-                    history.append( {
-                        "epoch" : epoch,
-                        "begin" : begin,
-                        "duration" : duration,
-                        "training" : {
-                            "loss" : train_loss,
-                            "kld" : train_kld,
-                            "reconstruction_loss" : train_rec_loss,
-                            "accuracy" : train_acc.item(),
-                            "error" : np.mean(train_error)
-                        },
-                        "validation" : {
-                            "loss" : valid_loss,
-                            "kld" : valid_kld,
-                            "reconstruction_loss" : valid_rec_loss,
-                            "accuracy" : float( str( acc ) ),
-                            "error" : np.mean(error)
-                        }
-                    } )
+                if valid_loss <= best_loss:
+                    save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir)
+                    best_loss = valid_loss
 
-                    if epoch%10 == 0:
-                        toPrint = 'Epoch {}, train loss {}(kld {}, recon loss {}, train acc {}) || valid loss {}(error {}, rec_loss {}, valid acc {}, sex change acc {})'
-                        print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc))
-                        print(toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, np.mean(error), valid_rec_loss, valid_acc, acc), file = my_log)
+                history.append( {
+                    "epoch" : epoch,
+                    "begin" : begin,
+                    "duration" : duration,
+                    "training" : {
+                        "loss" : train_loss,
+                        "kld" : train_kld,
+                        "reconstruction_loss" : train_rec_loss,
+                        "accuracy" : train_acc.item(),
+                        "error" : train_error
+                    },
+                    "validation" : {
+                        "loss" : valid_loss,
+                        "kld" : valid_kld,
+                        "reconstruction_loss" : valid_rec_loss,
+                        "accuracy" : valid_acc.item(),
+                        "error" : mean_val_error,
+                        "sex_change_success_rate" : acc
+                    }
+                } )
 
-                with open(os.path.join(checkpoint_dir, 'history' + str( n ) + '.json'), 'w') as fp:
-                    json.dump(history, fp)
+                if epoch%10 == 0:
+                    toPrint = 'Epoch {}, train loss {}(kld {}, recon loss {}, train acc {}) || valid loss {}(error {}, rec_loss {}, valid acc {}, sex change acc {})'
+                    toPrint = toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, mean_val_error, valid_rec_loss, valid_acc, acc)
+                    print( toPrint )
+                    print( toPrint, file = my_log)
 
-            if args.test:
-                test_dataset = MeshData(root_dir, np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())
-                test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
-                checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
-                checkpoint = torch.load(checkpoint_file)
-                net.load_state_dict(checkpoint['state_dict'])
+            with open(os.path.join(checkpoint_dir, 'history' + str( n ) + '.json'), 'w') as fp:
+                json.dump(history, fp)
 
-                test_loss, test_kld, test_rec_loss, cls_acc, test_error, acc = evaluate(n, net, test_loader, len(test_loader),device, num_points, faces = faces, checkpoint_dir = checkpoint_dir, vis = args.vis)
-                print(test_error.shape)
-                print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc)
-                print('round ', n,'test loss ', test_loss, 'mean error:', np.mean(test_error), "train sigma", np.std(test_error), "classification acc", cls_acc, "sex change rate", acc, file = my_log)
+        if args.test:
+            test_dataset = MeshData(np.array(dataset_index)[test_index], config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+            checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(n)+'.pt')
+            checkpoint = torch.load(checkpoint_file)
+            net.load_state_dict(checkpoint['state_dict'])
+
+            test_loss, test_kld, test_rec_loss, cls_acc, test_error, acc = evaluate(n, net, test_loader,device, faces = faces, checkpoint_dir = checkpoint_dir, vis = args.vis)
+            print(test_error.shape)
+            toPrint = 'round {} test loss {},  mean error: {}, train sigma {}, classification acc {}, sex change rate {}'
+            toPrint = toPrint.format( n, test_loss, np.mean(test_error), np.std(test_error), cls_acc, acc )
+            print( toPrint )
+            print( toPrint, file = my_log )
 
 
 if __name__ == '__main__':

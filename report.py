@@ -34,7 +34,8 @@ for file in data:
 
 print( str( numberOfPredictions ) + " predictions" )
 if args.p :
-	print( str( numberOfWrongPredictions ) + " wrong predictions" )
+	accuracy = 100 - ( 100 * numberOfWrongPredictions / numberOfPredictions  )
+	print( "{} wrong predictions. Accuracy : {:.2f}%)".format( numberOfWrongPredictions, accuracy ) )
 
 if args.e :
 	print( "Sorted max errors:" )

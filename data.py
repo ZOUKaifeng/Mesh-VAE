@@ -16,6 +16,15 @@ import open3d as o3d
 from sklearn.model_selection import train_test_split
 from utils import procrustes
 import copy
+
+def save_obj(filename, vertices, faces):
+    with open(filename, 'w') as fp:
+        for v in vertices:
+            fp.write('v %f %f %f\n' % (v[0], v[1], v[2]))
+
+        for f in faces + 1:
+            fp.write('f %d %d %d\n' % (f[0], f[1], f[2]))
+
 def OnUnitCube(data):
     max_, _ = torch.max(data.x, dim = 0)  # [N, D]  =>  [1, D]
     min_, _ = torch.min(data.x, dim = 0) 
@@ -28,6 +37,41 @@ def OnUnitCube(data):
 
     return data, s, m
 
+def listMeshes( config, getSexFromFileName = True ) :
+    labels = {}
+    dataset_index = []
+    files = sorted( os.listdir( config[ "root_dir" ] ) )
+
+    toRemove = {}
+    error_file = config[ "error_file" ]
+    if len( error_file ) > 0:
+        with open( error_file ) as f:
+            lines = f.read().split( "\n" )
+            for line in lines:
+                toRemove[ line.split( " " )[ 0 ] ] = True
+
+    numberOfMeshes = 0
+    numberOfRejectedMeshes = 0
+
+    for name in files:
+        if not name.endswith( ".obj" ) : continue
+        numberOfMeshes += 1
+        if name.split( "/" ).pop() in toRemove:
+            numberOfRejectedMeshes += 1
+            continue
+        dataset_index.append( name )
+
+        if getSexFromFileName:
+            name_ = name.split( "_" )
+            if name_[ 1 ] == "f":
+                labels[ name ] = 0
+            else:
+                labels[ name ] = 1
+        else: labels[ name ] = -1
+
+    s = "Dataset : {} meshes, {} rejected meshes, {} remaining meshes"
+    print( s.format( numberOfMeshes, numberOfRejectedMeshes, len( dataset_index ) ) )
+    return dataset_index, labels
 
 
 class MeshData(Dataset):
@@ -36,9 +80,9 @@ class MeshData(Dataset):
     error_file: outlier list
     template: average point cloud
     '''
-    def __init__(self, root_dir, dataset_index , config, label,  template, dtype = 'train',   pre_transform = None):
+    def __init__(self, dataset_index , config, label,  template, dtype = 'train',   pre_transform = None):
         self.checkpoint_dir = config['checkpoint_dir']
-        self.root_dir = root_dir   
+        self.root_dir = config[ 'root_dir' ]
         self.error_file = config['error_file']
         self.label = label
         self.template = template  
@@ -68,17 +112,7 @@ class MeshData(Dataset):
 
 
     def preprocess(self):
-        error = []
-        if self.error_file != "":
-            with open(self.error_file, "r") as file :
-                for ind in file:
-                    if ind != '\n':
-                        error.append(int(ind))
-
-        if len(error) > 0 : print("number of error file", len(error))
-
         filename = []
-
         data = []  #Create an empty list
         data_label = []
         train_vertices = []
@@ -95,7 +129,7 @@ class MeshData(Dataset):
   
         for i in self.dataset_index:
             file = os.path.join(self.root_dir, i )
-            if i not in error and os.path.exists(file):   #i not in error and 
+            if os.path.exists(file):   #i not in error and 
                # print(file)
                 
                 filename.append(file)
@@ -191,7 +225,7 @@ if __name__ == '__main__':
     root_dir = "./transfo_points"
     dataset_index = list(range(100))
     template = np.array(pd.read_csv("./template/final_points.csv.gz", header=None).values)
-    dataset = MeshData(root_dir, dataset_index, dtype = 'test', template = template)
+    dataset = MeshData(dataset_index, dtype = 'test', template = template)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True, num_workers=4)
 
     for i in dataloader:

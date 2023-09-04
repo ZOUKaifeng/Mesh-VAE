@@ -1,5 +1,6 @@
 
 import argparse
+import json
 import os
 import torch
 import torch.nn as nn
@@ -10,7 +11,7 @@ from torch_geometric.data import DataLoader
 import pandas as pd
 import mesh_operations
 from config_parser import read_config
-from data import MeshData
+from data import MeshData, listMeshes, save_obj
 from model import get_model
 from transform import Normalize
 from utils import *
@@ -21,16 +22,6 @@ from tqdm import tqdm
  
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Using device:",device)
-
-def save_obj(filename, vertices, faces):
-    with open(filename, 'w') as fp:
-        for v in vertices:
-            fp.write('v %f %f %f\n' % (v[0], v[1], v[2]))
-
-        for f in faces + 1:
-            fp.write('f %d %d %d\n' % (f[0], f[1], f[2]))
-
-
 
 def adjust_learning_rate(optimizer, lr_decay):
 
@@ -69,23 +60,16 @@ def scipy_to_torch_sparse(scp_matrix):
     shape = scp_matrix.shape
 
 
-def inference(root_dir, net, output_path, mean, std, config, template, batch_size, faces):
+def inference(net, output_path, mean, std, config, template, batch_size, faces):
 
-    labels = {}
-    dataset_index = []
-    files = sorted( os.listdir(root_dir) )
-    for name in files:
-        if not name.endswith(".obj") : continue
-        name_ = name.split("_")
-        dataset_index.append(name)
-        labels[name] = -1
-
+    dataset_index, labels = listMeshes( config, False )
     results = {}
     pred_sex = {}
     error_dict = {}
+    net.eval()
 
-    dataset = MeshData(root_dir, dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    dataset = MeshData(dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
     sucess_path = os.path.join(output_path, "sex_change" )
 
@@ -179,12 +163,18 @@ def main(args):
     print(args.conf)
     config = read_config(args.conf)
 
+    if args.parameter : 
+        for option in args.parameter:
+            value = option[ 1 ]
+            if not isinstance( config[ option[ 0 ] ], str ) :
+                value = json.loads( value )
+            config[ option[ 0 ] ] = value
+
     print('Initializing parameters')
     # template_mesh = pc2mesh(template)
 
- 
-
-    checkpoint_dir = config['checkpoint_dir']
+    checkpoint_dir = os.path.join( os.path.dirname( args.conf ), config['checkpoint_dir'] )
+    config['checkpoint_dir'] = checkpoint_dir
     if not os.path.exists(checkpoint_dir):
         os.makedirs(checkpoint_dir)
 
@@ -193,7 +183,7 @@ def main(args):
 
 
 
-    root_dir = args.data_dir
+    config[ 'root_dir' ] = args.data_dir
     output_path = args.output_path
 
 
@@ -228,13 +218,14 @@ def main(args):
     mean = torch.FloatTensor(norm_dict['mean'])
     std = torch.FloatTensor(norm_dict['std'])
     with torch.no_grad():
-        inference(root_dir, net, output_path, mean, std, config, template, batch_size, faces)
+        inference(net, output_path, mean, std, config, template, batch_size, faces)
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Pytorch Trainer')
     parser.add_argument('-c', '--conf', help='path of config file')
+    parser.add_argument( "-p", "--parameter", metavar=('parameter', 'value'), action='append', nargs=2, help = "config parameters" )
     parser.add_argument('-o', '--output_path',type = str, default= " ")
     parser.add_argument('-d', '--data_dir',type = str, default= " ")
     parser.add_argument('-n', '--model',type = int, default= 1)
