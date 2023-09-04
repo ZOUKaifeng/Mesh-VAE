@@ -13,8 +13,8 @@ from data import MeshData, listMeshes, save_obj
 import json
 from model import get_model, classifier_, save_model
 import numpy as np
-from psbody.mesh import Mesh
 import os
+import plotLosses
 from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
 import time
 import torch
@@ -307,6 +307,8 @@ def main(args):
         with open(os.path.join(checkpoint_dir, 'history' + str( n ) + '.json'), 'w') as fp:
             json.dump(history, fp)
 
+        plt = plotLosses.plotLosses( "Fold " + str( n ), history, config )
+        plt.savefig( os.path.join( checkpoint_dir, 'losses' + str( n ) + '.pdf') )
 
 if __name__ == '__main__':
 
