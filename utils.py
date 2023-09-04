@@ -1,7 +1,6 @@
 import numpy as np
 import scipy.sparse as sp
 import torch
-import  open3d as o3d
 from scipy.linalg import orthogonal_procrustes
 
 def euclidean_distances(gt, pred):
@@ -37,25 +36,6 @@ def get_vert_connectivity(mesh_v, mesh_f):
 def normal(tensor, mean, std):
     if tensor is not None:
         torch.nn.init.normal_(tensor, mean=mean, std=std)
-
-
-def np_to_pcd(pc):
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(pc)
-    return pcd
-
-def pc2mesh(point_cloud):
-    pc = np_to_pcd(point_cloud)
-
-    pc.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
-
-    distances = pc.compute_nearest_neighbor_distance()
-    avg_dist = np.mean(distances)
-    radius = 3 * avg_dist
-    bpa_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pc,o3d.utility.DoubleVector([radius, radius * 2]))
-
-    return bpa_mesh
-
 
 
 def procrustes(data1, data2):
