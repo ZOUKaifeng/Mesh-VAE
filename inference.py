@@ -26,23 +26,16 @@ def inference(net, output_path, mean, std, config, template, batch_size, faces):
 
     dataset = MeshData(dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
-
     sucess_path = os.path.join(output_path, "sex_change" )
-
-
-    if not os.path.exists(sucess_path):
-        os.makedirs(sucess_path)
-
+    if not os.path.exists(sucess_path): os.makedirs(sucess_path)
 
     with torch.no_grad():
         for data in tqdm(data_loader):
             x,x_gt, y, f, gt_mesh , R,m,s = data
-
             x, x_gt = x.to(device), x_gt.to(device)
             batch_size = x.num_graphs
             x_gt = x_gt.reshape(batch_size, -1, 3).float()
             pred = classifier_(net, x_gt)
-
 
             for i in range(x_gt.shape[0]):
                 predicted_sex = pred[i].cpu().numpy()
@@ -52,33 +45,19 @@ def inference(net, output_path, mean, std, config, template, batch_size, faces):
             sex_hot = F.one_hot(pred, num_classes = 2).to(device)
             loss, correct, out, z, y_hat = net(x, x_gt, sex_hot, m_type = "test")
 
-            
             recon_mesh = out.cpu() * std + mean
-
             s = s.unsqueeze(1)
-
             recon_mesh = torch.bmm(recon_mesh * s, R) + m
-
             recon_mesh = recon_mesh.detach().cpu().numpy()
-
             gt_mesh = gt_mesh.detach().cpu().numpy()
-
             oppo = 1 - sex_hot
-
             z = z[2]
-
             oppo_x =  net.sample(oppo, z)
 
-
-
             oppo_mesh =  oppo_x.cpu() * std + mean
-
             oppo_mesh = torch.bmm(oppo_mesh * s, R) + m
-
             oppo_mesh = oppo_mesh.detach().cpu().numpy()
 
-		   
-			
             diff = euclidean_distances(recon_mesh, gt_mesh).mean(-1)
             maxDiff = euclidean_distances(recon_mesh, gt_mesh).max(-1)
 
@@ -86,23 +65,16 @@ def inference(net, output_path, mean, std, config, template, batch_size, faces):
                 results[ f[ i ].split( "/" ).pop() ][ "reconstruction_error" ] = { "mean" : float( str ( diff[ i ] ) ), "max" : float( str ( maxDiff[ i ] ) ) }
                 error_dict.update({f[i]:format(diff[i], '.4f')})
 
-
-
             for i in range(batch_size):
                 file = f[i].split('/')[-1]
                 file = file.split('.')[0]
-
-         
                 recon_path = os.path.join(sucess_path, file+'_recon'+'.obj')
                 save_obj(recon_path, recon_mesh[i], faces)
                 gt_path = os.path.join(sucess_path, file+'_gt'+'.obj')
                 save_obj(gt_path, gt_mesh[i], faces)
-
                 oppo_path = os.path.join(sucess_path, file+'.obj')
                 save_obj(oppo_path, oppo_mesh[i], faces)
 
-
-    import json
     with open(os.path.join(output_path, 'pred.json'), 'w') as fp:
         json.dump(pred_sex, fp)
 
@@ -136,25 +108,14 @@ def main(args):
     config[ 'root_dir' ] = args.data_dir
     output_path = args.output_path
 
-
     error_file = config['error_file']
     log_path = config['log_file']
 
-    lr = config['learning_rate']
-    lr_decay = config['learning_rate_decay']
-    weight_decay = config['weight_decay']
-    total_epochs = config['epoch']
-    workers_thread = config['workers_thread']
-    opt = config['optimizer']
     batch_size = config['batch_size']
-    template_file_path = config['template']
-    val_losses, accs, durations = [], [], []
-
-    net, template_mesh = get_model(config, device)
     print('loading template...', config['template'])
+    net, template_mesh = get_model(config, device)
     template = np.array(template_mesh.v)
     faces = np.array(template_mesh.f)
-    num_points = template.shape[0]
 
     checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(args.model)+'.pt')
     checkpoint = torch.load(checkpoint_file)

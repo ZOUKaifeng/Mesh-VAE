@@ -106,7 +106,6 @@ class MeshData(Dataset):
         self.pre_transform = pre_transform
         # self.random_state = config['random_seeds']
         self.dtype = dtype
-        self.res = []
         self.preprocess()
         self.male = None
         self.female = None
@@ -145,39 +144,28 @@ class MeshData(Dataset):
   
         for i in self.dataset_index:
             file = os.path.join(self.root_dir, i )
-            if os.path.exists(file):   #i not in error and 
-               # print(file)
+            if not os.path.exists(file):  continue
+            # print(file)
                 
-                filename.append(file)
-               # print(file)
-               # points = pd.read_csv(file, header=None).values  # Load the points of the patient i
-                # mesh = o3d.io.read_triangle_mesh(file)
-
-                mesh = Mesh(filename=file)
-                # points, s, mean_points = OnUnitCube(np.array(mesh.v))
-                points = np.array(mesh.v) 
-                self.ori_mesh.append(torch.Tensor(points))
-                mtx1, mtx2, disparity, res= procrustes(self.template,points)
-                ori_mtx = copy.copy(mtx2)
-                train_vertices.append(ori_mtx)
-                if self.edge_index is None:
-
-                    adjacency = mesh_operations.get_vert_connectivity(mesh.v, mesh.f).tocoo()
-                    self.edge_index = torch.Tensor(np.vstack((adjacency.row, adjacency.col))).long()
+            filename.append(file)
+            mesh = Mesh(filename=file)
+            # points, s, mean_points = OnUnitCube(np.array(mesh.v))
+            points = np.array(mesh.v) 
+            self.ori_mesh.append(torch.Tensor(points))
+            mtx1, mtx2, disparity, res= procrustes(self.template,points)
+            ori_mtx = copy.copy(mtx2)
+            train_vertices.append(ori_mtx)
+            if self.edge_index is None:
+                adjacency = mesh_operations.get_vert_connectivity(mesh.v, mesh.f).tocoo()
+                self.edge_index = torch.Tensor(np.vstack((adjacency.row, adjacency.col))).long()
                # data_ = Data(x=mesh_verts, y=mesh_verts, edge_index=self.edge_index)
-
-                
 
                    # Procrustes surimposition of the patients points over the average points (and normalization)
                 #data.append(data_)        # Add the registered points to the tensor vertices
-                data_label.append(self.label[i])  # Add label i to label
-               
-                # self.res.append([torch.Tensor(res[0]),torch.Tensor([res[1]]), torch.Tensor([res[2]])])
-                self.R.append(torch.FloatTensor(res[0]))
-                self.s.append(torch.FloatTensor([res[1]]))
-                self.m.append(torch.FloatTensor(np.array([res[2]])))
-
-
+            data_label.append(self.label[i])  # Add label i to label
+            self.R.append(torch.FloatTensor(res[0]))
+            self.s.append(torch.FloatTensor([res[1]]))
+            self.m.append(torch.FloatTensor(np.array([res[2]])))
 
         if not os.path.exists(os.path.join(self.checkpoint_dir,'norm')):
             if self.dtype == 'train':
@@ -215,34 +203,3 @@ class MeshData(Dataset):
 
         print(self.dtype ," dataset has been created, number of {} samples:".format(self.dtype), len(self.ori_data) )
 
-        # if self.dtype == 'test':
-        #     if self.pre_transform is not None:
-        #         self.norm_dict = np.load(os.path.join(self.checkpoint_dir, 'norm.npz'), allow_pickle = True)
-        #         mean = self.norm_dict['mean']
-        #         std = self.norm_dict['std']
-        #         if hasattr(self.pre_transform, 'mean') and hasattr(self.pre_transform, 'std'):
-        #             if self.pre_transform.mean is None:
-        #                 self.pre_transform.mean = mean
-        #             if self.pre_transform.std is None:
-        #                 self.pre_transform.std = std
-
-        #         self.test = [self.pre_transform(v) for v in data]
-        #         self.test_label = data_label
-        #         self.filename = filename
-        #     else:
-        #         self.test = data
-        #         self.test_label = data_label
-        #         self.filename = filename
-        
-            # print("Test dataset has been created, the number of test data:", len(self.test))
-
-
-if __name__ == '__main__':
-    root_dir = "./transfo_points"
-    dataset_index = list(range(100))
-    template = np.array(pd.read_csv("./template/final_points.csv.gz", header=None).values)
-    dataset = MeshData(dataset_index, dtype = 'test', template = template)
-    dataloader = DataLoader(dataset, batch_size=8, shuffle=True, num_workers=4)
-
-    for i in dataloader:
-        print(i[0].shape)

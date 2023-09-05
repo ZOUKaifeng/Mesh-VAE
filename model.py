@@ -53,27 +53,19 @@ def get_model(config, device, model_type  = None, save_init = True):
     A_t = [scipy_to_torch_sparse(a).to(device) for a in A]
     num_nodes = [len(M[i].v) for i in range(len(M))]
 
-    if model_type is None:
-        model_type = config['type']
+    if model_type is None: model_type = config['type']
 
+    print('Using model:', model_type)
     if model_type == 'cheb_VAE':
-        
-        print('Using model: cheb_VAE')
         net = cheb_VAE(num_feature, config, D_t, U_t, A_t, num_nodes, model = config['model']).to(device)
-        for name,parameters in net.named_parameters():
-            print(name,':',parameters.size())
-
-        if save_init:
-            torch.save(net.state_dict(), os.path.join(config['checkpoint_dir'], 'initial_weight.pt'))
-    
     elif model_type == 'cheb_GCN':
-        
-        print('Using model: cheb_GCN')
         net = cheb_GCN(num_feature*2, config, D_t, U_t, A_t, num_nodes).to(device)
-        for name,parameters in net.named_parameters():
-            print(name,':',parameters.size())
-        if save_init:
-            torch.save(net.state_dict(), os.path.join(config['checkpoint_dir'], 'initial_weight.pt'))
+
+#    for name,parameters in net.named_parameters():
+#        print(name,':',parameters.size())
+
+    if save_init:
+        torch.save(net.state_dict(), os.path.join(config['checkpoint_dir'], 'initial_weight.pt'))
     
 
     '''
