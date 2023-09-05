@@ -127,7 +127,6 @@ def main(args):
             config[ option[ 0 ] ] = value
 
     print('Initializing parameters')
-    # template_mesh = pc2mesh(template)
 
     checkpoint_dir = os.path.join( os.path.dirname( args.conf ), config['checkpoint_dir'] )
     config['checkpoint_dir'] = checkpoint_dir

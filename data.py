@@ -1,5 +1,3 @@
-
-
 import os
 import torch
 import pandas as pd
@@ -15,6 +13,25 @@ from torch_geometric.data import Data
 from sklearn.model_selection import train_test_split
 from utils import procrustes
 import copy
+
+# this function loads a mesh and reorders its vertices the same way open3d does
+def Mesh2( filename = "none" ):
+    mesh = Mesh( filename=filename )
+    indices = np.full( shape = mesh.v.shape[ 0 ], fill_value= -1 )
+    coords = np.copy( mesh.v )
+    counter = 0
+    for i in range( mesh.f.shape[ 0 ] ) :
+        for j in range( 3 ) :
+            vertex = mesh.f[ i ][ j ]
+            if indices[ vertex ] < 0:
+                indices[ vertex ] = counter
+                coords[ counter ] = mesh.v[ vertex ]
+                counter += 1
+            mesh.f[ i ][ j ] = indices[ vertex ]
+
+    mesh.v = coords
+    return mesh
+
 
 def save_obj(filename, vertices, faces):
     with open(filename, 'w') as fp:
