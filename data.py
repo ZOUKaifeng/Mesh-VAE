@@ -1,18 +1,12 @@
-import os
-import torch
-import pandas as pd
-import numpy as np
-#from scipy.spatial import procrustes
-# from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
-from transform import Normalize
-from torch.utils.data import Dataset
-import mesh_operations
-from psbody.mesh import Mesh
-from torch_geometric.data import Data
-from sklearn.model_selection import train_test_split
-from utils import procrustes
 import copy
+import mesh_operations
+import numpy as np
+import os
+from psbody.mesh import Mesh
+import torch
+from torch.utils.data import Dataset
+from torch_geometric.data import Data
+from utils import procrustes
 
 # this function loads a mesh and reorders its vertices the same way open3d does
 def Mesh2( filename = "none" ):
@@ -32,7 +26,6 @@ def Mesh2( filename = "none" ):
     mesh.v = coords
     return mesh
 
-
 def save_obj(filename, vertices, faces):
     with open(filename, 'w') as fp:
         for v in vertices:
@@ -50,7 +43,6 @@ def OnUnitCube(data):
     data.x  = data.x / s 
     m, _ = torch.min(data.x, dim = 0, keepdims = True)
     data.x = data.x - m
-
     return data, s, m
 
 def listMeshes( config, getSexFromFileName = True ) :
@@ -91,115 +83,61 @@ def listMeshes( config, getSexFromFileName = True ) :
 
 
 class MeshData(Dataset):
-    '''
-    root_dir: point cloud data path
-    error_file: outlier list
-    template: average point cloud
-    '''
     def __init__(self, dataset_index , config, label,  template, dtype = 'train',   pre_transform = None):
-        self.checkpoint_dir = config['checkpoint_dir']
-        self.root_dir = config[ 'root_dir' ]
-        self.error_file = config['error_file']
-        self.label = label
-        self.template = template  
-        self.dataset_index = dataset_index
+        checkpoint_dir = config['checkpoint_dir']
         self.pre_transform = pre_transform
-        # self.random_state = config['random_seeds']
-        self.dtype = dtype
-        self.preprocess()
-        self.male = None
-        self.female = None
-
-
-    def __len__(self):
-
-        return len(self.ori_data)   
-
-    def __getitem__(self, idx):
-        mtx2 = copy.copy(self.ori_data[idx])
-        index = []
-        
-        ori_data = (torch.tensor(self.ori_data[idx])-self.pre_transform.mean)/ self.pre_transform.std
-        mesh_verts = copy.copy(ori_data).float()
-       # mesh_verts[index] = 0
-        data_ = Data(x=mesh_verts, y=mesh_verts, edge_index=self.edge_index)
-        return data_, ori_data , self.data_label[idx], self.filename[idx],self.ori_mesh[idx], self.R[idx], self.m[idx], self.s[idx]
-
-
-    def preprocess(self):
-        filename = []
-        data = []  #Create an empty list
-        data_label = []
-        train_vertices = []
-
+        self.filename = []
+        self.data_label = []
         self.ori_mesh = []
         self.R = []
         self.s = []
         self.m = []
-        self.unit_s = []
-        self.unit_min = []
-        self.data = []
         self.ori_data = []
         self.edge_index = None
   
-        for i in self.dataset_index:
-            file = os.path.join(self.root_dir, i )
-            if not os.path.exists(file):  continue
-            # print(file)
-                
-            filename.append(file)
+        for fileName in dataset_index:
+            file = os.path.join(config[ 'root_dir' ], fileName )
+            if not os.path.exists(file) : continue
+            self.filename.append(file)
             mesh = Mesh(filename=file)
             # points, s, mean_points = OnUnitCube(np.array(mesh.v))
             points = np.array(mesh.v) 
             self.ori_mesh.append(torch.Tensor(points))
-            mtx1, mtx2, disparity, res= procrustes(self.template,points)
+            mtx1, mtx2, disparity, res= procrustes(template,points)
             ori_mtx = copy.copy(mtx2)
-            train_vertices.append(ori_mtx)
-            if self.edge_index is None:
-                adjacency = mesh_operations.get_vert_connectivity(mesh.v, mesh.f).tocoo()
-                self.edge_index = torch.Tensor(np.vstack((adjacency.row, adjacency.col))).long()
-               # data_ = Data(x=mesh_verts, y=mesh_verts, edge_index=self.edge_index)
-
-                   # Procrustes surimposition of the patients points over the average points (and normalization)
-                #data.append(data_)        # Add the registered points to the tensor vertices
-            data_label.append(self.label[i])  # Add label i to label
+            self.ori_data.append(ori_mtx)
+            self.data_label.append(label[fileName])
             self.R.append(torch.FloatTensor(res[0]))
             self.s.append(torch.FloatTensor([res[1]]))
             self.m.append(torch.FloatTensor(np.array([res[2]])))
+            if self.edge_index is None:
+                adjacency = mesh_operations.get_vert_connectivity(mesh.v, mesh.f).tocoo()
+                self.edge_index = torch.Tensor(np.vstack((adjacency.row, adjacency.col))).long()
 
-        if not os.path.exists(os.path.join(self.checkpoint_dir,'norm')):
-            if self.dtype == 'train':
+        if dtype == 'train' and not os.path.exists(os.path.join(checkpoint_dir,'norm')):
+            mean_train = np.mean(self.ori_data, axis=0)
+            std_train = np.std(self.ori_data, axis=0)
+            self.norm_dict = {'mean': mean_train, 'std': std_train}
+            np.savez(os.path.join(checkpoint_dir,'norm'), mean = mean_train, std = std_train)
 
-                mean_train = np.mean(train_vertices, axis=0)
-                std_train = np.std(train_vertices, axis=0)
-
-                self.norm_dict = {'mean': mean_train, 'std': std_train}
-                np.savez(os.path.join(self.checkpoint_dir,'norm'), mean = mean_train, std = std_train)
-
-
-        if self.pre_transform is not None:
-            self.norm_dict = np.load(os.path.join(self.checkpoint_dir, 'norm.npz'), allow_pickle = True)
+        if pre_transform is not None:
+            self.norm_dict = np.load(os.path.join(checkpoint_dir, 'norm.npz'), allow_pickle = True)
             mean = self.norm_dict['mean']
             std = self.norm_dict['std']
-            if hasattr(self.pre_transform, 'mean') and hasattr(self.pre_transform, 'std'):
-                if self.pre_transform.mean is None:
-                    self.pre_transform.mean = mean
-                if self.pre_transform.std is None:
-                    self.pre_transform.std = std
+            if hasattr(pre_transform, 'mean') and hasattr(pre_transform, 'std'):
+                if pre_transform.mean is None:
+                    pre_transform.mean = mean
+                if pre_transform.std is None:
+                    pre_transform.std = std
 
-            #self.data = data
-           # for v in train_vertices:
-            self.ori_data =train_vertices
+        print( dtype, " dataset has been created, number of {} samples:".format(dtype), len(self.ori_data) )
 
-            self.filename = filename
-            self.data_label = data_label
+    def __len__(self):
+        return len( self.ori_data )
 
-
-        else:
-            self.data = data
-            self.data_label = data_label
-
-            self.filename = filename
-
-        print(self.dtype ," dataset has been created, number of {} samples:".format(self.dtype), len(self.ori_data) )
+    def __getitem__(self, idx):
+        normalized_data = (torch.tensor(self.ori_data[idx])-self.pre_transform.mean)/ self.pre_transform.std
+        mesh_verts = copy.copy(normalized_data).float()
+        data_ = Data(x=mesh_verts, y=mesh_verts, edge_index=self.edge_index)
+        return data_, normalized_data , self.data_label[idx], self.filename[idx],self.ori_mesh[idx], self.R[idx], self.m[idx], self.s[idx]
 
