@@ -9,8 +9,8 @@ main function
 """
 import argparse
 from config_parser import read_config
+import json
 import os
-import torch
 import numpy as np
 import torch.nn.functional as F
 from torch_geometric.loader import DataLoader
@@ -25,7 +25,8 @@ from psbody.mesh import Mesh
 from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
 import copy
 import time
-import json
+import torch
+from tqdm import tqdm
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -86,6 +87,28 @@ def evaluate(model, dvae, test_loader, device, criterion, err_file = False):
 
     return total_loss / total, correct/total, err
 
+def inference(model, dvae, loader, output_path):
+    model.eval()
+    dvae.eval()
+    results = {}
+    if not os.path.exists(output_path): os.makedirs(output_path)
+
+    with torch.no_grad():
+        d = tqdm(loader)
+        for data in d:
+            x,x_gt, label, f, gt_mesh , R,m,s = data
+            x_gt, label = x_gt.to(device).float(), label.to(device)
+            diff, _ = estimate_diff(dvae, x_gt, label, "test")
+            pred = model(diff)
+            predicted =torch.argmax(F.softmax(pred, 1), dim = -1)
+
+            for i in range(x_gt.shape[0]):
+                predicted_sex = predicted[i].cpu().numpy()
+                results[ f[ i ].split( "/" ).pop() ] = { "sex" : int( str( predicted_sex ) ) }
+
+    with open(os.path.join(output_path, 'inference.json'), 'w') as fp:
+        json.dump(results, fp)
+
 def estimate_diff(net, x, y,dtype):
     net = net.to(device)
     ori = copy.copy(x)
@@ -133,6 +156,8 @@ def main(args):
     print(args.conf)
     config = read_config(args.conf)
 
+    config[ 'checkpoint_dir' ] = os.path.join( os.path.dirname( args.conf ), config['checkpoint_dir'] )
+
     print('Initializing parameters')
 
     checkpoint_dir = config['checkpoint_dir']
@@ -161,6 +186,26 @@ def main(args):
     checkpoint = torch.load(checkpoint_file)
     dvae.load_state_dict(checkpoint['state_dict'])   
 
+
+    if args.inferenceDir:
+        config[ "root_dir" ] = args.inferenceDir
+        dataset_index, labels = listMeshes( config )
+
+        if args.all : models = range( 1, 1 + config[ "folds" ] )
+        else : models = [ args.model ]
+        net, _unused = get_model(config, device, model_type="cheb_GCN")
+        inference_dataset = MeshData(dataset_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
+        inference_loader = DataLoader(inference_dataset, batch_size=batch_size, shuffle=False)
+
+        for i in models:
+            checkpoint_file = os.path.join(checkpoint_dir, 'checkpoint_'+ str(i)+'.pt')
+            checkpoint = torch.load(checkpoint_file)
+            net.load_state_dict(checkpoint['state_dict'])
+            path = os.path.join( args.output_path, str( i ) )
+            inference( net, dvae, inference_loader, path )
+        exit( 0 )
+
+    dataset_index, labels = listMeshes( config )
     my_log = open(config['log_file'], 'w')
 
     print('model type:', config['type'], file = my_log)
@@ -170,7 +215,6 @@ def main(args):
     print(checkpoint_file)
     #criterion = BCEFocalLoss()
     criterion = torch.nn.CrossEntropyLoss()
-    dataset_index, labels = listMeshes( config )
     skf = RepeatedStratifiedKFold(n_splits=config['folds'], n_repeats=1, random_state = random_seeds)
     n = 0
     y = np.ones(len(dataset_index))
@@ -249,6 +293,10 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--train',action='store_true')
     parser.add_argument('-s', '--test',action='store_true')
     parser.add_argument('--cpu',action='store_true', help = "force cpu")
+    parser.add_argument('-o', '--output_path', type = str, default= "./")
+    parser.add_argument('-i', '--inferenceDir',type = str )
+    parser.add_argument('-a', '--all',action='store_true', help = "inference for all folds")
+    parser.add_argument('-n', '--model', help = 'number of inference',type = int, default= 1)
     args = parser.parse_args()
 
     if args.conf is None:
