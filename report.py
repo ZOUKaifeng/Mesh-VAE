@@ -33,6 +33,7 @@ def report( path, args ):
 				numberOfWrongPredictions += 1;
 				if not args.verbose :continue
 				print( file + ": wrong prediction" )
+				if not "reconstruction_error" in individual : continue
 				error = individual[ "reconstruction_error" ]
 				print( "reconstruction error : max= " + str( error[ "max" ] ) +", mean= " + str( error[ "mean" ] ) )
 
