@@ -6,6 +6,7 @@ parser = argparse.ArgumentParser( description = 'Analyse inference results', for
 parser.add_argument( 'path', help = 'inference path' )
 parser.add_argument( "-p", "--prediction", help="Analyse sex prediction results", action="store_true" )
 parser.add_argument( "-e", "--error", help="List max reconstruction errors", action="store_true" )
+parser.add_argument( "-m", "--minError", help="show only max reconstruction errors above this threshold", type = float )
 parser.add_argument( "-v", "--verbose", help="verbose", action="store_true" )
 parser.add_argument( "-f", "--folds", help="number of folds", type = int )
 args = parser.parse_args()
@@ -46,6 +47,8 @@ def report( path, args ):
 		print( "Sorted max errors:" )
 		individuals.sort( key=lambda i: i[ "reconstruction_error" ][ "max" ] )
 		for individual in individuals :
+			if args.minError :
+				if args.minError > individual[ "reconstruction_error" ][ "max" ] : continue
 			print( individual[ "file" ] + " : " + str( individual[ "reconstruction_error" ][ "max" ] ) )
 
 if args.folds:
