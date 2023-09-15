@@ -29,14 +29,38 @@ def plotLosses( title, data, config = None ) :
 			values = list( map( lambda e : e[ type ][ loss ], data ) )
 			ax.plot( epochs, values, label = type)
 
-		ax.legend( title = lossTxt, loc = 'center right')
+		ax.legend( title = lossTxt )
+
+	pos += 1
+	ax = figure.add_subplot( pos )
+	ax.set_xlabel( 'epoch' )
+	ax.set_ylabel( "duration (s.)" )
+	ax.set_xlim( 0, epochs[ -2 ] )
+	durations = []
+	x = []
+	y = []
+	nSaves = 0
+	text = ""
+
+	for epoch in epochs:
+		if epoch < epochs[ -2 ]:
+			duration = data[ epoch ][ "begin" ] - data[ epoch -1 ][ "begin" ]
+		durations.append( duration )
+		if "saved" in data[ epoch -1 ]:
+			x.append( epoch )
+			y.append( duration )
+			nSaves += 1
+			text = "Last model saved at epoch {}, {} total saves\n".format( epoch, nSaves )
+	ax.plot( epochs, durations, label = "duration(s.)" )
+	ax.plot( x, y, marker='*', ls='none', ms=10, label = "model saves")
+	ax.legend()
 
 	duration = data[ -1 ][ 'begin' ] - data[ 0 ][ 'begin' ] + data[ -1 ][ "duration" ]
-	text = "Total training time : " + format_timespan( math.ceil( duration ) )
+	text += "Total training time : " + format_timespan( math.ceil( duration ) )
 	if "test" in data[ -1 ] :
 		text += "\ntest : " + json.dumps( data[ -1 ][ "test" ] )
 	if config : text += "\nConfig : " + json.dumps( config )
-	figure.text( 0.1, 0.15, text, wrap = True )
+	figure.text( 0.4, 0.15, text, wrap = True )
 	return plt
 
 

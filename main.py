@@ -232,6 +232,7 @@ def main(args):
             valid_dataset = MeshData(valid_index, config, labels, dtype = 'test', template = template, pre_transform = Normalize())
             valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True)
             best_loss = 10000000
+            best_sex_change_success_rate = -1
 
             for epoch in range(start_epoch, total_epochs + 1):
 
@@ -248,10 +249,6 @@ def main(args):
                 mean_val_error = error.mean().item()
 
                 duration = time.time() - begin
-
-                if valid_loss <= best_loss:
-                    save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir)
-                    best_loss = valid_loss
 
                 history.append( {
                     "epoch" : epoch,
@@ -274,11 +271,27 @@ def main(args):
                     }
                 } )
 
+                if config[ "save" ] == "best_loss":
+                    if valid_loss <= best_loss:
+                        save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir)
+                        best_loss = valid_loss
+                        history[ -1 ][ "saved" ] = True
+
+                if config[ "save" ] == "best_sex_change_success_rate":
+                    if best_sex_change_success_rate <= acc:
+                        save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir)
+                        best_sex_change_success_rate = acc
+                        history[ -1 ][ "saved" ] = True
+
                 if epoch%10 == 0:
                     toPrint = 'Epoch {}, train loss {}(kld {}, recon loss {}, train acc {}) || valid loss {}(error {}, rec_loss {}, valid acc {}, sex change acc {})'
                     toPrint = toPrint.format(epoch, train_loss,train_kld, train_rec_loss, train_acc, valid_loss, mean_val_error, valid_rec_loss, valid_acc, acc)
                     print( toPrint )
                     print( toPrint, file = my_log)
+
+            if config[ "save" ] == "last":
+                save_model(net, optimizer, n, train_loss, valid_loss, checkpoint_dir)
+                history[ -1 ][ "saved" ] = True
 
         else : history.append( {} )
 
