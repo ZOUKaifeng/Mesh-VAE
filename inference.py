@@ -16,11 +16,12 @@ from utils import euclidean_distances
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Using device:",device)
 
-def inference(loader, net, output_path, mean, std, config, faces):
+def inference(loader, net, output_path, mean, std, config, faces, args):
     results = {}
     net.eval()
+    if not os.path.exists(output_path): os.makedirs(output_path)
     mesh_path = os.path.join(output_path, "sex_change" )
-    if not os.path.exists(mesh_path): os.makedirs(mesh_path)
+    if args.meshes and not os.path.exists(mesh_path): os.makedirs(mesh_path)
 
     with torch.no_grad():
         d = tqdm(loader)
@@ -57,6 +58,7 @@ def inference(loader, net, output_path, mean, std, config, faces):
             for i in range(diff.shape[0]):
                 results[ f[ i ].split( "/" ).pop() ][ "reconstruction_error" ] = { "mean" : float( str ( diff[ i ] ) ), "max" : float( str ( maxDiff[ i ] ) ) }
 
+            if not args.meshes : continue
             for i in range(local_batch_size):
                 file = f[i].split('/')[-1]
                 file = file.split('.')[0]
@@ -108,10 +110,11 @@ def main(args):
 
     for i in models:
         checkpoint_file = os.path.join( checkpoint_dir, 'checkpoint_'+ str(i)+'.pt' )
+        print( "Load checkpoint file : ", checkpoint_file )
         checkpoint = torch.load( checkpoint_file )
         net.load_state_dict( checkpoint['state_dict'] )
         path = os.path.join( args.output_path, str( i ) )
-        inference(loader, net, path, mean, std, config, faces)
+        inference(loader, net, path, mean, std, config, faces, args)
 
 
 if __name__ == '__main__':
@@ -120,6 +123,7 @@ if __name__ == '__main__':
     parser.add_argument( "-p", "--parameter", metavar=('parameter', 'value'), action='append', nargs=2, help = "config parameters", default = [] )
     parser.add_argument('-o', '--output_path',type = str, default= "./")
     parser.add_argument('-d', '--data_dir',type = str, default= " ")
+    parser.add_argument('-m', '--meshes',action='store_true', help = "save meshes")
     parser.add_argument('-a', '--all',action='store_true', help = "inference for all folds")
     parser.add_argument('-n', '--model',type = int, default= 1)
     args = parser.parse_args()
