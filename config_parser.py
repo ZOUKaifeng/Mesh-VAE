@@ -34,6 +34,7 @@ def set_default_parameters(config):
 
     config.add_section('Learning Parameters')
     config.set('Learning Parameters', 'optimizer', 'adam')
+    config.set('Learning Parameters', 'save', 'best_loss')
     config.set('Learning Parameters', 'batch_size', 16)
     config.set('Learning Parameters', 'learning_rate', 1e-3)
     config.set('Learning Parameters', 'learning_rates', "0.001, 0.0001")
@@ -78,6 +79,7 @@ def read_config(fname):
 
 
     config_parms['optimizer'] = config.get('Learning Parameters', 'optimizer')
+    config_parms['save'] = config.get('Learning Parameters', 'save')
     config_parms['batch_size'] = config.getint('Learning Parameters', 'batch_size')
     config_parms['learning_rate'] = config.getfloat('Learning Parameters', 'learning_rate')
     config_parms['learning_rates'] = [float(x) for x in config.get('Learning Parameters', 'learning_rates').split(',')]
